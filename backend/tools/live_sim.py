@@ -48,7 +48,7 @@ def main() -> None:
     cap = cv2.VideoCapture(a.video)
     fps = cap.get(cv2.CAP_PROP_FPS) or 7.0
     w, h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    s = Session(a.procedure, publish, Embedder())
+    s = Session(a.procedure, publish, Embedder(), run=f"sim-{Path(a.video).stem}")
     s.configure_hevc(w, h)
     units = hevc_access_units(a.video)
     t0 = time.time()

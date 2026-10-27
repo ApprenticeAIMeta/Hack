@@ -25,6 +25,7 @@ from meta_sam_parser import FramePrompt, PromptBox, PromptObject, build_object_p
 
 from apprentice.capture.frame_gate import LiveGate
 from apprentice.guide.policy import Check, SparkPolicy
+from apprentice.guide.recorder import Recorder
 from apprentice.guide.state import Tracker, step_ranges
 from apprentice.models.meta import SAM, MetaClient
 from apprentice.progress.crop import _touches, crop, parse_lines
@@ -65,7 +66,7 @@ class _FutureHandle:
 
 class Session:
     def __init__(self, procedure: str, publish: Callable[[dict], None], embedder: Embedder,
-                 client: MetaClient | None = None):
+                 client: MetaClient | None = None, run: str | None = None, record: bool = True):
         self.name = procedure
         self.dir = ROOT / "procedures" / procedure
         self.proc = json.loads((self.dir / "procedure.json").read_text())
@@ -77,7 +78,8 @@ class Session:
         self.pool = ThreadPoolExecutor(4)
         self.tracker = Tracker(step_ranges(self.proc), self._ask)
         self.gate = LiveGate(max_fps=2.0)
-        self.publish = publish
+        self.recorder = Recorder(procedure, run, len(self.proc["steps"])) if record else None
+        self._publish = publish
         self.t0 = time.time()
         self.box: tuple | None = None
         self.ticks = 0
@@ -94,6 +96,11 @@ class Session:
         self._worker = threading.Thread(target=self._run, daemon=True)
         self._worker.start()
 
+    def publish(self, msg: dict) -> None:
+        if self.recorder and msg["type"] == "state":
+            self.recorder.state(msg)
+        self._publish(msg)
+
     # -- input ---------------------------------------------------------------------------
 
     def push_jpeg(self, data: bytes) -> None:
@@ -109,10 +116,14 @@ class Session:
         if self._decoder is None or self._size != (width, height):
             self._decoder = av.CodecContext.create("hevc", "r")
             self._size = (width, height)
+            if self.recorder:
+                self.recorder.config(width, height)
 
     def push_hevc(self, data: bytes) -> None:
         if self._decoder is None:
             return
+        if self.recorder:
+            self.recorder.unit(time.time() - self.t0, data)
         try:
             for pkt in self._decoder.parse(data):
                 for fr in self._decoder.decode(pkt):
@@ -136,6 +147,8 @@ class Session:
     def close(self) -> None:
         self._decoder = None
         self._stop = True
+        if self.recorder:
+            self.recorder.close()
         with self._cv:
             self._cv.notify()
         self.pool.shutdown(wait=False, cancel_futures=True)

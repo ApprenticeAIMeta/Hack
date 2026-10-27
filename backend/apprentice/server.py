@@ -2,7 +2,8 @@
 
     PYTHONPATH=. .venv/bin/uvicorn apprentice.server:app --host 0.0.0.0 --port 8000
 
-  WS  /ws/device?procedure=airplane  phone: sends {"type": "config", "codec": "hevc", "width", "height"}
+  WS  /ws/device?procedure=airplane&run=novice_1
+                                     phone: sends {"type": "config", "codec": "hevc", "width", "height"}
                                      then the glasses' HEVC stream as binary messages (or plain JPEG
                                      frames with no config, as tools/feed.py does); receives guidance
                                      events ({"type": "play", "url", "text", "kind"}) as JSON text
@@ -13,6 +14,7 @@
   GET /procedures/...                voice clips and reference frames
 
 One device session at a time (a demo has one novice); a new device connection replaces it.
+Every device session is recorded to out/sessions/ (see guide/recorder.py).
 """
 
 from __future__ import annotations
@@ -95,7 +97,7 @@ async def _broadcast(msg: dict) -> None:
 
 
 @app.websocket("/ws/device")
-async def device(ws: WebSocket, procedure: str = "airplane") -> None:
+async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = None) -> None:
     global _session, _device
     await ws.accept()
     loop = asyncio.get_running_loop()
@@ -106,9 +108,9 @@ async def device(ws: WebSocket, procedure: str = "airplane") -> None:
     if _session:
         _session.close()
     emb = await loop.run_in_executor(None, embedder)
-    _session = session = Session(procedure, publish, emb)
+    _session = session = Session(procedure, publish, emb, run=run)
     _device = ws
-    await _broadcast({"type": "session", "procedure": procedure, "status": "started"})
+    await _broadcast({"type": "session", "procedure": procedure, "run": run, "status": "started"})
     hevc = False
     try:
         while True:

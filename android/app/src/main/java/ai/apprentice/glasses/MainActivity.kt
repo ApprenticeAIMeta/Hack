@@ -117,6 +117,8 @@ private fun GuideScreen(vm: GuideViewModel, onRegister: () -> Unit, onStart: () 
         enabled = !ui.running, modifier = Modifier.fillMaxWidth())
     OutlinedTextField(ui.procedure, vm::setProcedure, label = { Text("Procedure") }, singleLine = true,
         enabled = !ui.running, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(ui.run, vm::setRun, label = { Text("Run name, e.g. novice_corners_out") }, singleLine = true,
+        enabled = !ui.running, modifier = Modifier.fillMaxWidth())
 
     Button(
         onClick = { if (ui.running) vm.stop() else onStart() },
