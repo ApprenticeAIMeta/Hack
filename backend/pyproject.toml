@@ -9,6 +9,9 @@ dependencies = [
     "opencv-python-headless>=4.10",
     "python-dotenv>=1.0",
     "meta-sam-parser>=0.1.0",
+    "scipy>=1.13",
+    "torch>=2.5",
+    "transformers>=4.45",
 ]
 
 [build-system]
