@@ -52,6 +52,8 @@ def build(video: Path, name: str, recompile: bool = False, effort: str = "medium
     dest = ROOT / "procedures" / name
     for d in (cache, dest / "clips", dest / "keyframes"):
         d.mkdir(parents=True, exist_ok=True)
+    for old in [*(dest / "clips").glob("*"), *(dest / "keyframes").glob("*")]:
+        old.unlink()  # a recompile can produce fewer steps; never keep stale media
     info = media.probe(video)
     cost: dict[str, float] = {}
     t_all = time.perf_counter()

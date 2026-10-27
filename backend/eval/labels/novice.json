@@ -1,0 +1,9 @@
+{
+ "procedure": "airplane",
+ "video": "footage/plane_novice_7fps.mp4",
+ "end": 100,
+ "labeled_by": "visual inspection of 2 s workpiece crops, +/- 2 s",
+ "notes": "Novice starts with an already clean sheet (step 1 done at t=0). Wings still in progress at 100 s.",
+ "step_done": [0, 19, 40, 64, 72, null],
+ "mistakes": []
+}

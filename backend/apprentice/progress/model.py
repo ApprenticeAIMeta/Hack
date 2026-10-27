@@ -56,6 +56,17 @@ class ProgressModel:
         i = np.argmin(np.abs(self.bank.p[m] - progress))
         return float(self.bank.t[m][i])
 
+    def novelty_threshold(self, pct: float = 2.0) -> float:
+        """Similarity below which a frame looks like nothing the experts did: the `pct` percentile of
+        each expert frame's best match in the other expert runs (leave-one-run-out)."""
+        b = self.bank
+        best = []
+        for r in np.unique(b.run):
+            mine, rest = b.run == r, b.run != r
+            if rest.any():
+                best.append((b.X[mine] @ b.X[rest].T).max(axis=1))
+        return float(np.percentile(np.concatenate(best), pct)) if best else 0.0
+
     def save(self, path: Path) -> None:
         b = self.bank
         np.savez_compressed(path, w=self.w, X=b.X.astype(np.float16), p=b.p, run=b.run, t=b.t,

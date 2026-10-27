@@ -39,7 +39,10 @@ def score(video: Path, name: str, model: ProgressModel, workpiece: str) -> dict:
     prog[keep] = causal_median(pred["progress"])
     raw = np.full(len(d["crops"]), np.nan)
     raw[keep] = pred["progress"]
-    return {"t": np.array(d["t"]), "progress": prog, "raw": raw, "frames": d["frames"], "boxes": d["boxes"]}
+    sim = np.full(len(d["crops"]), np.nan)
+    sim[keep] = pred["similarity"]
+    return {"t": np.array(d["t"]), "progress": prog, "raw": raw, "sim": sim, "frames": d["frames"],
+            "boxes": d["boxes"], "crops": d["crops"]}
 
 
 def step_at(proc: dict, t_expert: float) -> str:

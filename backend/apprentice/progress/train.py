@@ -17,6 +17,7 @@ import json
 import subprocess
 from pathlib import Path
 
+import cv2
 import numpy as np
 
 from apprentice.models.meta import MetaClient
@@ -66,6 +67,39 @@ def run_bank(name: str, video: Path, workpiece: str, span: tuple[float, float] |
     return X, np.clip((tt - a) / (b - a), 0, 1), tt
 
 
+def reference_crops(pdir: Path, proc: dict, video: Path, d: dict, out_w: int = 512, pad: float = 0.3) -> None:
+    """keyframes/step_XX_crop.jpg: each step's reference frame cropped to the workpiece, from the
+    full-resolution source, using the SAM box of the nearest 2 fps frame."""
+    cap = cv2.VideoCapture(str(video))
+    for s in proc["steps"]:
+        rf = s.get("reference_frame")
+        if not rf:
+            continue
+        i = int(round(rf["t"] * FPS))
+        near = [j for j in range(max(0, i - 2), min(len(d["boxes"]), i + 3)) if d["boxes"][j]]
+        if not near:
+            continue
+        box = d["boxes"][min(near, key=lambda j: abs(j - i))]
+        cap.set(cv2.CAP_PROP_POS_MSEC, rf["t"] * 1000)
+        ok, f = cap.read()
+        if not ok:
+            continue
+        H, W = f.shape[:2]
+        sc = W / d["frames"][0].shape[1]
+        x1, y1, x2, y2 = (v * sc for v in box)
+        side = max(x2 - x1, y2 - y1) * (1 + 2 * pad)
+        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+        a, b = int(max(0, cx - side / 2)), int(max(0, cy - side / 2))
+        c, e = int(min(W, cx + side / 2)), int(min(H, cy + side / 2))
+        crop = f[b:e, a:c]
+        crop = cv2.resize(crop, (out_w, round(crop.shape[0] * out_w / crop.shape[1])), interpolation=cv2.INTER_AREA)
+        name = f"keyframes/{s['id']}_crop.jpg"
+        cv2.imwrite(str(pdir / name), crop, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        s["reference_frame"]["crop"] = name
+    cap.release()
+    (pdir / "procedure.json").write_text(json.dumps(proc, indent=1))
+
+
 def train(procedure: str, runs: dict[str, Path]) -> Path:
     pdir = ROOT / "procedures" / procedure
     proc = json.loads((pdir / "procedure.json").read_text())
@@ -77,6 +111,8 @@ def train(procedure: str, runs: dict[str, Path]) -> Path:
     for r, (name, video) in enumerate(runs.items()):
         span = (proc["steps"][0]["t_start"], proc["steps"][-1]["t_end"]) if video.stem == compiled_from else None
         X, p, t = run_bank(name, video, proc["workpiece"], span, cache, client, emb)
+        if span:
+            reference_crops(pdir, proc, video, crops_for_run(cache / f"{name}_2fps.mp4", proc["workpiece"], client, cache))
         Xs.append(X), ps.append(p), rs.append(np.full(len(p), r)), ts.append(t)
         print(f"{name}: {len(p)} training frames")
     model = ProgressModel().fit(Bank(np.vstack(Xs), np.concatenate(ps), np.concatenate(rs), np.concatenate(ts)),
