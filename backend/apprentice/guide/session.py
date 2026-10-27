@@ -36,6 +36,20 @@ SMOOTH = 5
 REACQUIRE = 10
 
 
+def _iou(a, b) -> float:
+    inter = max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[1], b[1]))
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
+    return inter / union if union else 0.0
+
+
+def _plausible(prev, box, min_iou: float = 0.2, max_scale: float = 3.0) -> bool:
+    """A box-prompt result that jumped away or changed size wildly has latched onto something else
+    (seen live: the sheet's box collapsed onto a corner of the laptop and progress spiked to 96%)."""
+    ap = (prev[2] - prev[0]) * (prev[3] - prev[1])
+    ab = (box[2] - box[0]) * (box[3] - box[1])
+    return _iou(prev, box) >= min_iou and 1 / max_scale <= ab / max(ap, 1) <= max_scale
+
+
 class _FutureHandle:
     def __init__(self, fut: Future):
         self.fut = fut
@@ -153,12 +167,12 @@ class Session:
             prompt = build_object_prompt(size=(W, H), objects=[PromptObject(
                 id=1, prompts=[FramePrompt(frame=0, box=PromptBox(x1, y1, min(x2 + 1, W), min(y2 + 1, H)))])])
             got = self._sam(frame, prompt)
-            if got:
+            if got and _plausible(self.box, got[0][:4]):
                 return tuple(got[0][:4])
         with ThreadPoolExecutor(2) as ex:
             wp, hands = ex.map(lambda p: self._sam(frame, p), [self.proc["workpiece"], "hand"])
-        touched = [r for r in wp if any(_touches(r[:4], h[:4]) for h in hands)] or wp
-        if not touched:
+        touched = [r for r in wp if any(_touches(r[:4], h[:4]) for h in hands)]
+        if not touched:      # nothing in the hands: no tick beats a tick on the wrong object
             return None
 
         def score(r):

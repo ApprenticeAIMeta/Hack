@@ -88,6 +88,7 @@ class Tracker:
         self.finished = False
         self.instructed = False
         self.ahead: int | None = None   # previous locate answer that was past the current step
+        self.here = 0                   # consecutive locate answers placing the novice on this step
         self.suspect = False      # one positive mistake check seen; recheck before warning
         self.pending: list[tuple[float, str, int, Handle]] = []  # (asked at, kind, step, handle)
         self.last_ask = {"done": -1e9, "mistake": -1e9}
@@ -112,7 +113,7 @@ class Tracker:
         return any(p[1] == kind for p in self.pending)
 
     def _enter(self, t: float, k: int) -> None:
-        self.k, self.ahead, self.instructed, self.suspect = k, None, False, False
+        self.k, self.ahead, self.instructed, self.suspect, self.here = k, None, False, False, 0
         self.last_ask["done"] = -1e9
 
     # -- results -------------------------------------------------------------------------
@@ -137,6 +138,7 @@ class Tracker:
                     continue
                 n = res.completed
                 if n > self.k:
+                    self.here = 0
                     if self.ahead is not None:
                         target = min(n, self.ahead)
                         for j in range(self.k, target):
@@ -150,7 +152,8 @@ class Tracker:
                         self.ahead = n
                 else:
                     self.ahead = None
-                    if not self.instructed:               # settled on this step: tell the novice what to do
+                    self.here += 1
+                    if not self.instructed and self.here >= 2:   # two answers agree: tell the novice what to do
                         self.instructed = True
                         self._emit(arrival, "instruct", self.k)
             elif kind == "mistake":
