@@ -29,3 +29,7 @@ dist/
 
 # os
 .DS_Store
+
+# compiled media (regenerable from footage; contains voices and rooms)
+procedures/*/clips/
+procedures/*/keyframes/
