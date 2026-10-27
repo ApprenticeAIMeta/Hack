@@ -19,7 +19,7 @@ import cv2
 import numpy as np
 
 from apprentice.guide.policy import Check, SparkPolicy
-from apprentice.guide.state import Config, Tracker, step_ranges
+from apprentice.guide.state import Config, SimAsker, Tracker, step_ranges
 from apprentice.progress.align import score
 from apprentice.progress.model import ProgressModel
 
@@ -95,7 +95,7 @@ def replay(procedure: str, video: Path, name: str, cfg: Config | None = None, en
     out = ROOT / "out" / "replay" / name
     out.mkdir(parents=True, exist_ok=True)
     pol = CachedPolicy(SparkPolicy(pdir), out / "checks_v2.json")
-    tr = Tracker(step_ranges(proc), pol.locate, pol.mistake, cfg)
+    tr = Tracker(step_ranges(proc), SimAsker(pol.locate, pol.mistake), cfg)
     views = spark_views(video, s["t"], s["boxes"], s["frames"][0].shape[1])
 
     for i, t in enumerate(s["t"]):

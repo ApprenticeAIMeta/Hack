@@ -88,10 +88,14 @@ def select_keyframes(scores: list[FrameScore], window_s: float = 1.0, motion_pct
 
 class LiveGate:
     """Online gate for the live stream: pass a frame unless it is among the blurriest or shakiest
-    of the recent history (percentiles), at most `max_fps` frames per second."""
+    of the recent history (percentiles), at most `max_fps` frames per second. `offer` also never
+    goes quiet: after `max_wait_s` without a pass it releases the sharpest frame it saw meanwhile."""
 
-    def __init__(self, max_fps: float = 2.0, history: int = 30, sharp_pct: float = 40.0, motion_pct: float = 60.0):
+    def __init__(self, max_fps: float = 2.0, history: int = 30, sharp_pct: float = 40.0, motion_pct: float = 60.0,
+                 max_wait_s: float = 1.5):
         self.min_dt = 1.0 / max_fps
+        self.max_wait = max_wait_s
+        self._best: tuple[float, np.ndarray] | None = None
         self.sharp_pct, self.motion_pct = sharp_pct, motion_pct
         self._scorer = Scorer()
         self._sharp = deque(maxlen=history)
@@ -105,10 +109,25 @@ class LiveGate:
                                 and m <= np.percentile(self._motion, self.motion_pct))
         self._sharp.append(s)
         self._motion.append(m)
+        self._score = s
         if ok and t - self._last_t >= self.min_dt:
             self._last_t = t
             return True
         return False
+
+    def offer(self, bgr: np.ndarray, t: float) -> np.ndarray | None:
+        """The frame to process now, if any: this one if it passes, else the sharpest held frame
+        once the gate has been quiet for max_wait_s."""
+        if self(bgr, t):
+            self._best = None
+            return bgr
+        if self._best is None or self._score > self._best[0]:
+            self._best = (self._score, bgr)
+        if t - self._last_t >= self.max_wait:
+            self._last_t = t
+            frame, self._best = self._best[1], None
+            return frame
+        return None
 
 
 def write_frames(path: Path, picked: list[FrameScore], out_dir: Path, width: int = 768) -> list[Path]:

@@ -34,3 +34,4 @@ dist/
 procedures/*/clips/
 procedures/*/keyframes/
 procedures/*/progress.npz
+android/.kotlin/

@@ -12,15 +12,17 @@ Mistake triggers, both answered by a Spark mistake check before anything is said
               experts never showed). Relative to the run's own recent level, because a novice's
               room and lighting already make every frame less similar than expert-to-expert.
 
-Checks run asynchronously: a result arrives `latency` seconds after its request, as it would
-live. Replay passes video time; live passes wall-clock time.
+Checks run asynchronously through an asker: `ask(kind, step, frame, t)` returns a handle whose
+`poll(now)` gives (arrival_time, Check) once the answer is in. SimAsker (replay) calls Spark
+right away and releases the answer `latency` seconds of video time later; the live session
+submits to a thread pool. Replay passes video time; live passes wall-clock time.
 """
 
 from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Callable, Protocol
 
 import numpy as np
 
@@ -51,18 +53,43 @@ class Event:
     data: dict = field(default_factory=dict)
 
 
+class Handle(Protocol):
+    def poll(self, now: float) -> tuple[float, Check] | None: ...
+
+
+Asker = Callable[[str, int, np.ndarray, float], Handle]
+
+
+class _Ready:
+    def __init__(self, arrival: float, res: Check):
+        self.arrival, self.res = arrival, res
+
+    def poll(self, now: float):
+        return (self.arrival, self.res) if now >= self.arrival else None
+
+
+class SimAsker:
+    """Synchronous checks with simulated latency, for replay."""
+
+    def __init__(self, locate: Callable[[np.ndarray], Check], mistake: Callable[[int, np.ndarray], Check]):
+        self.locate, self.mistake = locate, mistake
+
+    def __call__(self, kind: str, step: int, frame: np.ndarray, t: float) -> Handle:
+        res = self.locate(frame) if kind == "done" else self.mistake(step, frame)
+        return _Ready(t + res.latency_s, res)
+
+
 class Tracker:
-    def __init__(self, ranges: list[tuple[float, float]], locate: Callable[[np.ndarray], Check],
-                 mistake_check: Callable[[int, np.ndarray], Check], cfg: Config | None = None):
+    def __init__(self, ranges: list[tuple[float, float]], ask: Asker, cfg: Config | None = None):
         self.ranges = ranges
-        self.locate, self.mistake_check = locate, mistake_check
+        self.ask = ask
         self.cfg = cfg or Config()
         self.k = 0
         self.finished = False
         self.instructed = False
         self.ahead: int | None = None   # previous locate answer that was past the current step
         self.suspect = False      # one positive mistake check seen; recheck before warning
-        self.pending: list[tuple[float, str, int, Check]] = []   # (arrival, kind, step, result)
+        self.pending: list[tuple[float, str, int, Handle]] = []  # (asked at, kind, step, handle)
         self.last_ask = {"done": -1e9, "mistake": -1e9}
         self.last_warn = -1e9
         self.peak = deque()      # (t, p)
@@ -70,6 +97,7 @@ class Tracker:
         self.novel_ticks = 0
         self.sims = deque(maxlen=self.cfg.novelty_window)
         self.events: list[Event] = []
+        self._sent = 0
 
     # -- helpers -------------------------------------------------------------------------
 
@@ -77,12 +105,8 @@ class Tracker:
         self.events.append(Event(round(t, 2), kind, step, data))
 
     def _ask(self, t: float, kind: str, frame: np.ndarray) -> None:
-        res = self.locate(frame) if kind == "done" else self.mistake_check(self.k, frame)
-        self.pending.append((t + res.latency_s, kind, self.k, res))
+        self.pending.append((t, kind, self.k, self.ask(kind, self.k, frame, t)))
         self.last_ask[kind] = t
-        self._emit(t, "check", self.k, check=kind, yes=res.yes, completed=res.completed, unclear=res.unclear,
-                   conf=res.confidence, reason=res.reason,
-                   latency_s=round(res.latency_s, 2), cost=res.cost)
 
     def _busy(self, kind: str) -> bool:
         return any(p[1] == kind for p in self.pending)
@@ -94,9 +118,18 @@ class Tracker:
     # -- results -------------------------------------------------------------------------
 
     def _deliver(self, now: float, p: float | None) -> None:
-        due = [x for x in self.pending if x[0] <= now]
-        self.pending = [x for x in self.pending if x[0] > now]
-        for arrival, kind, step, res in sorted(due, key=lambda x: x[0]):
+        due, waiting = [], []
+        for asked, kind, step, h in self.pending:
+            got = h.poll(now)
+            if got:
+                due.append((asked, kind, step, got))
+            else:
+                waiting.append((asked, kind, step, h))
+        self.pending = waiting
+        for asked, kind, step, (arrival, res) in sorted(due, key=lambda x: x[3][0]):
+            self._emit(arrival, "check", step, check=kind, asked=round(asked, 2), yes=res.yes, completed=res.completed,
+                       unclear=res.unclear, conf=res.confidence, reason=res.reason,
+                       latency_s=round(res.latency_s, 2), cost=res.cost)
             if step != self.k or self.finished:
                 continue                                  # stale: we moved on
             if kind == "done":
@@ -165,6 +198,12 @@ class Tracker:
     def flush(self, t: float) -> None:
         """Deliver everything still in flight (end of a replay)."""
         self._deliver(t + 60, None)
+
+    def drain(self) -> list[Event]:
+        """Events since the last drain (live sessions push these to clients)."""
+        out = self.events[self._sent:]
+        self._sent = len(self.events)
+        return out
 
 
 def step_ranges(proc: dict) -> list[tuple[float, float]]:

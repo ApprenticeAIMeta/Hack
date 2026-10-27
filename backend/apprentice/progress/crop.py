@@ -25,6 +25,17 @@ RECORD = re.compile(r"(?:^|,)(\d+)<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);w=(
 FRAME = re.compile(r"<(\d+)f>(.*)")
 
 
+def parse_lines(text: str) -> dict[int, list[tuple]]:
+    """SAM output lines -> {frame: [(id, x1, y1, x2, y2, conf)]}. Records follow the <Nf> marker."""
+    frames: dict[int, list] = {}
+    for line in text.splitlines():
+        m = FRAME.match(line.strip())
+        if m:
+            frames[int(m.group(1))] = [(int(g[0]), int(g[1]), int(g[2]), int(g[3]), int(g[4]), float(g[7] or 1.0))
+                                       for g in RECORD.findall(m.group(2))]
+    return frames
+
+
 def track(video: Path, prompt: str, client: MetaClient) -> dict:
     """SAM 3.1 over the whole clip. Returns {frame: [(id, x1, y1, x2, y2, conf)], "size": (w, h)}."""
     fid = client.upload(video)

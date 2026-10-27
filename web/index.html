@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ApprenticeAI live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --metal: #D5D9DC;
+    --panel: #F4F6F7;
+    --ink: #1C2226;
+    --ink-soft: #55606A;
+    --rule: #B7BDC2;
+    --blue: #1E5AA8;
+    --red: #C2312B;
+    --yellow: #F5C400;
+    --ok: #2F7D4F;
+    --r-panel: 14px;
+    --r-gauge: 22px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--metal);
+    color: var(--ink);
+    font: 400 16px/1.45 "Barlow", system-ui, sans-serif;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 100vh;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 24px;
+    padding: 14px 28px 10px;
+  }
+  header h1 { font: 600 22px/1 "Barlow", sans-serif; margin: 0; letter-spacing: -0.01em; }
+  header .task { color: var(--ink-soft); font-size: 17px; }
+  header .spacer { flex: 1; }
+  header .meta { color: var(--ink-soft); font-variant-numeric: tabular-nums; font-size: 15px; }
+  #status { display: inline-flex; align-items: center; gap: 8px; }
+  #status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--rule); }
+  #status.live::before { background: var(--ok); }
+  button {
+    font: 500 15px "Barlow", sans-serif; color: var(--ink);
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 999px;
+    padding: 6px 14px; cursor: pointer;
+  }
+  button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  button:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+  main {
+    display: grid; gap: 18px; padding: 6px 28px 24px;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-rows: minmax(0, 1fr) 210px;
+    grid-template-areas: "mirror side" "chart side";
+    min-height: 0;
+  }
+
+  /* the mirror: two gauges */
+  .mirror { grid-area: mirror; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; min-height: 0; position: relative; }
+  .gauge {
+    position: relative; min-height: 0;
+    border-radius: var(--r-gauge);
+    border: 6px solid var(--blue);
+    background: #000; overflow: hidden;
+  }
+  .gauge.expert { border-color: var(--red); }
+  .gauge img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .gauge img:not([src]) { visibility: hidden; }
+  .models { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .gauge .face {
+    position: absolute; left: 0; right: 0; top: 0;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 12px 16px; pointer-events: none;
+    background: linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,0));
+    color: #fff;
+  }
+  .gauge .who { font: 600 18px "Barlow", sans-serif; }
+  .gauge .who small { display: block; font-weight: 400; font-size: 14px; opacity: .85; }
+  .gauge .pct { font: 700 64px/0.9 "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums; }
+  .gauge.novice .pct { color: #9CC3F2; }
+  .gauge.expert .pct { color: #F2A29E; }
+  .box {
+    position: absolute; border: 3px solid #9CC3F2; border-radius: 6px;
+    transition: all .25s ease-out; display: none;
+  }
+  .empty {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    color: #C9D0D6; font-size: 18px; text-align: center; padding: 24px;
+  }
+  .model {
+    font: 500 13px "Barlow", sans-serif; color: #fff;
+    background: rgba(0,0,0,.6); border-radius: 999px; padding: 4px 10px;
+    opacity: .55; transition: opacity .3s;
+  }
+  .model.active { opacity: 1; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
+
+  .warn {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+    background: var(--yellow); color: var(--ink);
+    border-radius: 0 0 var(--r-gauge) var(--r-gauge);
+    padding: 16px 22px; display: none;
+    grid-template-columns: auto 1fr; gap: 4px 16px; align-items: baseline;
+  }
+  .warn.show { display: grid; animation: drop .35s ease-out; }
+  .warn b { font: 700 26px "Barlow Condensed", sans-serif; grid-row: span 2; }
+  .warn .what { font-weight: 600; font-size: 19px; }
+  .warn .said { font-size: 17px; }
+  @keyframes drop { from { transform: translateY(100%); } to { transform: none; } }
+
+  /* progress chart */
+  .chart { grid-area: chart; background: var(--panel); border-radius: var(--r-panel); padding: 12px 16px 10px; position: relative; min-height: 0; }
+  .chart h2, .side h2 { font: 600 16px "Barlow", sans-serif; margin: 0 0 4px; }
+  .chart canvas { width: 100%; height: calc(100% - 26px); display: block; }
+  .legend { position: absolute; top: 12px; right: 16px; display: flex; gap: 16px; font-size: 14px; color: var(--ink-soft); }
+  .legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+
+  /* steps + expert voice */
+  .side { grid-area: side; display: grid; grid-template-rows: auto 1fr; gap: 18px; min-height: 0; }
+  .steps, .voice { background: var(--panel); border-radius: var(--r-panel); padding: 14px 16px; min-height: 0; }
+  .steps ol { list-style: none; margin: 6px 0 0; padding: 0; counter-reset: s; }
+  .steps li {
+    counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 0 8px;
+    padding: 7px 0; border-top: 1px solid var(--rule); color: var(--ink-soft);
+  }
+  .steps li:first-child { border-top: 0; }
+  .steps li::before {
+    content: counter(s); font: 600 17px "Barlow Condensed", sans-serif;
+    width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+    border: 2px solid var(--rule); color: var(--ink-soft);
+  }
+  .steps li.done::before { content: "✓"; background: var(--ok); border-color: var(--ok); color: #fff; }
+  .steps li.now { color: var(--ink); }
+  .steps li.now::before { border-color: var(--blue); color: var(--blue); }
+  .steps li .title { font-weight: 600; }
+  .steps li.now .instr { display: block; }
+  .steps .instr { display: none; grid-column: 2; font-size: 15px; margin-top: 2px; }
+  .voice { overflow: auto; }
+  .voice ul { list-style: none; margin: 6px 0 0; padding: 0; }
+  .voice li { padding: 8px 0; border-top: 1px solid var(--rule); }
+  .voice li:first-child { border-top: 0; }
+  .voice .when { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .voice q { font-size: 17px; quotes: "“" "”"; }
+  .voice li.warned q { background: var(--yellow); padding: 0 3px; }
+  .voice .hint { color: var(--ink-soft); font-size: 15px; }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; grid-template-rows: auto 200px auto; grid-template-areas: "mirror" "chart" "side"; }
+    .mirror { min-height: 60vh; }
+    header { flex-wrap: wrap; padding: 12px 16px; }
+    main { padding: 6px 16px 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .warn.show { animation: none; } .box { transition: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>ApprenticeAI</h1>
+  <span class="task" id="task">Loading procedure</span>
+  <span class="spacer"></span>
+  <span class="meta" id="status">Waiting for glasses</span>
+  <span class="meta" id="cost"></span>
+  <button id="sound" aria-pressed="false">Sound off</button>
+</header>
+<main>
+  <section class="mirror" aria-label="Live mirror">
+    <div class="gauge novice">
+      <img id="novice" alt="Novice's view from the glasses">
+      <div class="box" id="box"></div>
+      <div class="empty" id="novice-empty">Start the stream on the phone to see the novice's view</div>
+      <div class="face"><span class="who">Novice<small>live from the glasses</small></span><span class="pct" id="pct-n">–</span></div>
+      <div class="models"><span class="model" id="m-sam">SAM 3.1 finds the workpiece</span>
+      <span class="model" id="m-dino">DINOv2 scores progress</span></div>
+    </div>
+    <div class="gauge expert">
+      <img id="expert" alt="Expert's view at the same point in the task">
+      <div class="empty" id="expert-empty">The expert at the same point in the task</div>
+      <div class="face"><span class="who">Expert<small id="expert-step">same point in the task</small></span><span class="pct" id="pct-e">–</span></div>
+      <div class="models"><span class="model" id="m-spark">Muse Spark checks the step</span>
+      <span class="model" id="m-voice">Expert's voice, cut by Muse Voice Transcribe</span></div>
+    </div>
+    <div class="warn" id="warn" role="alert">
+      <b>Stop</b><span class="what" id="warn-what"></span><span class="said" id="warn-said"></span>
+    </div>
+  </section>
+
+  <section class="chart" aria-label="Progress over time">
+    <h2>Progress</h2>
+    <div class="legend"><span><i style="background:var(--blue)"></i>Novice</span><span><i style="background:var(--red)"></i>Expert's pace</span><span><i style="background:var(--yellow)"></i>Warning</span></div>
+    <canvas id="chart"></canvas>
+  </section>
+
+  <aside class="side">
+    <section class="steps" aria-label="Steps"><h2>Steps</h2><ol id="steps"></ol></section>
+    <section class="voice" aria-label="What the expert said"><h2>The expert said</h2>
+      <ul id="voice"><li class="hint">Guidance plays here in the expert's own voice.</li></ul></section>
+  </aside>
+</main>
+
+<script>
+const PROC = new URLSearchParams(location.search).get("procedure") || "airplane";
+const $ = (id) => document.getElementById(id);
+let proc = null, ranges = [], expertSpan = 1, soundOn = false;
+const curve = [], warns = [];
+let current = 0, done = new Set(), sessionT = 0;
+
+fetch(`/api/procedure/${PROC}`).then(r => r.json()).then(p => {
+  proc = p;
+  $("task").textContent = p.task;
+  const t0 = p.steps[0].t_start, t1 = p.steps[p.steps.length - 1].t_end;
+  expertSpan = t1 - t0;
+  ranges = p.steps.map(s => [(s.t_start - t0) / expertSpan, (s.t_end - t0) / expertSpan]);
+  renderSteps(); drawChart();
+});
+
+function renderSteps() {
+  $("steps").innerHTML = proc.steps.map((s, i) =>
+    `<li class="${done.has(i) ? "done" : i === current ? "now" : ""}"><span class="title">${s.title}</span><span class="instr">${s.instruction}</span></li>`).join("");
+}
+
+$("sound").onclick = () => {
+  soundOn = !soundOn;
+  $("sound").setAttribute("aria-pressed", soundOn);
+  $("sound").textContent = soundOn ? "Sound on" : "Sound off";
+};
+
+function flash(id, ms = 1600) {
+  const el = $(id); el.classList.add("active");
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("active"), ms);
+}
+
+function say(ev) {
+  const li = document.createElement("li");
+  if (ev.kind === "warn") li.className = "warned";
+  li.innerHTML = `<div class="when">${fmt(ev.t)} · step ${ev.step + 1}${ev.kind === "warn" ? ", warning" : ""}</div><q></q>`;
+  li.querySelector("q").textContent = ev.play.text;
+  const ul = $("voice");
+  if (ul.firstElementChild?.classList.contains("hint")) ul.innerHTML = "";
+  ul.prepend(li);
+  flash("m-voice", 4000);
+  if (soundOn) new Audio(ev.play.url).play().catch(() => {});
+}
+
+function fmt(t) { const m = Math.floor(t / 60), s = Math.floor(t % 60); return `${m}:${String(s).padStart(2, "0")}`; }
+
+function showWarn(ev) {
+  $("warn-what").textContent = ev.what || "Check your work";
+  $("warn-said").textContent = ev.play ? `“${ev.play.text}”` : "";
+  $("warn").classList.add("show");
+  clearTimeout(showWarn._t); showWarn._t = setTimeout(() => $("warn").classList.remove("show"), 9000);
+}
+
+function onState(m) {
+  sessionT = m.t;
+  if (m.progress != null) {
+    curve.push([m.t, m.progress]);
+    $("pct-n").textContent = Math.round(m.progress * 100) + "%";
+    $("pct-e").textContent = Math.round(m.progress * 100) + "%";
+    flash("m-dino", 700);
+  }
+  if (m.box && m.frame_size) {
+    const img = $("novice"), [fw, fh] = m.frame_size, b = $("box");
+    const W = img.clientWidth, H = img.clientHeight, s = Math.min(W / fw, H / fh);
+    const ox = (W - fw * s) / 2, oy = (H - fh * s) / 2;
+    Object.assign(b.style, { display: "block", left: ox + m.box[0] * s + "px", top: oy + m.box[1] * s + "px",
+      width: (m.box[2] - m.box[0]) * s + "px", height: (m.box[3] - m.box[1]) * s + "px" });
+    flash("m-sam", 700);
+  }
+  if (m.mirror_t != null) {
+    $("expert").src = `/api/mirror/${PROC}/${m.mirror_t.toFixed(1)}.jpg`;
+    $("expert-empty").style.display = "none";
+    if (proc) {
+      const s = proc.steps.find(s => m.mirror_t >= s.t_start && m.mirror_t <= s.t_end);
+      if (s) $("expert-step").textContent = s.title;
+    }
+  }
+  for (const ev of m.events) {
+    if (ev.kind === "check") flash("m-spark", 1500);
+    if (ev.kind === "step_done") done.add(ev.step);
+    if (ev.kind === "complete") done.add(ev.step);
+    if (ev.kind === "warn") { warns.push(ev.t); showWarn(ev); }
+    if (ev.play) say(ev);
+  }
+  current = m.step;
+  if (m.finished) proc && proc.steps.forEach((_, i) => done.add(i));
+  if (proc) renderSteps();
+  $("cost").textContent = `$${m.cost_usd.toFixed(2)} so far`;
+  drawChart();
+}
+
+function drawChart() {
+  const c = $("chart"), dpr = devicePixelRatio || 1;
+  const W = c.clientWidth, H = c.clientHeight;
+  if (!W || !H) return;
+  c.width = W * dpr; c.height = H * dpr;
+  const g = c.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, W, H);
+  const L = 8, R = W - 8, T = 6, B = H - 18;
+  const span = Math.max(expertSpan, sessionT, 30);
+  const x = t => L + (R - L) * t / span, y = p => B - (B - T) * p;
+  g.font = "13px Barlow, sans-serif"; g.textBaseline = "middle";
+  ranges.forEach(([a, b], i) => {               // step bands
+    g.fillStyle = i % 2 ? "rgba(28,34,38,.035)" : "rgba(28,34,38,.075)";
+    g.fillRect(L, y(b), R - L, y(a) - y(b));
+    g.fillStyle = "#55606A"; g.fillText(`${i + 1}`, L + 4, (y(a) + y(b)) / 2);
+  });
+  g.strokeStyle = "#C2312B"; g.setLineDash([6, 5]); g.lineWidth = 2;   // expert's pace
+  g.beginPath(); g.moveTo(x(0), y(0)); g.lineTo(x(expertSpan), y(1)); g.stroke(); g.setLineDash([]);
+  g.strokeStyle = "#F5C400"; g.lineWidth = 3;
+  warns.forEach(t => { g.beginPath(); g.moveTo(x(t), T); g.lineTo(x(t), B); g.stroke(); });
+  g.strokeStyle = "#1E5AA8"; g.lineWidth = 3; g.lineJoin = "round"; g.beginPath();
+  curve.forEach(([t, p], i) => i ? g.lineTo(x(t), y(p)) : g.moveTo(x(t), y(p))); g.stroke();
+  if (curve.length) { const [t, p] = curve[curve.length - 1]; g.fillStyle = "#1E5AA8"; g.beginPath(); g.arc(x(t), y(p), 5, 0, 7); g.fill(); }
+  g.fillStyle = "#55606A"; g.textBaseline = "alphabetic";
+  for (let t = 0; t <= span; t += 30) g.fillText(fmt(t), x(t) - 10, H - 2);
+}
+addEventListener("resize", drawChart);
+
+function connect() {
+  const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/dashboard`);
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === "frame") {
+      $("novice").src = "data:image/jpeg;base64," + m.jpeg;
+      $("novice-empty").style.display = "none";
+    } else if (m.type === "state") onState(m);
+    else if (m.type === "session") {
+      const live = m.status === "started";
+      $("status").textContent = live ? "Glasses live" : "Session ended";
+      $("status").classList.toggle("live", live);
+      if (live) { curve.length = 0; warns.length = 0; done = new Set(); current = 0; $("voice").innerHTML = ""; }
+    }
+  };
+  ws.onclose = () => setTimeout(connect, 1500);
+}
+connect();
+</script>
+</body>
+</html>

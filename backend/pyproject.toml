@@ -12,6 +12,10 @@ dependencies = [
     "scipy>=1.13",
     "torch>=2.5",
     "transformers>=4.45",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "websockets>=13",
+    "av>=14",
 ]
 
 [build-system]
