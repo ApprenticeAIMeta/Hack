@@ -1,0 +1,31 @@
+# secrets
+.env
+.env.*
+
+# media and generated output (clips exceed GitHub's 100 MB limit)
+footage/
+out/
+*.mp4
+*.mov
+
+# pre-hackathon setup, kept out of the submission
+prehack/
+vendor/
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# android
+android/**/build/
+android/.gradle/
+android/local.properties
+
+# node
+node_modules/
+.next/
+dist/
+
+# os
+.DS_Store
