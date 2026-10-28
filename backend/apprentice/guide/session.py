@@ -109,7 +109,7 @@ class Session:
         if frame is not None:
             self._on_frame(frame, data)
 
-    def configure_hevc(self, width: int, height: int) -> None:
+    def configure_hevc(self, width: int, height: int, fps: int | None = None) -> None:
         """The phone forwards the glasses' compressed HEVC stream as is (Annex B, ~55 kbps), one
         access unit per message; it is decoded in-process. (An ffmpeg pipe lost the first ~3 s:
         its stream probe swallowed the keyframe.)"""
@@ -117,7 +117,7 @@ class Session:
             self._decoder = av.CodecContext.create("hevc", "r")
             self._size = (width, height)
             if self.recorder:
-                self.recorder.config(width, height)
+                self.recorder.config(width, height, fps)
 
     def push_hevc(self, data: bytes) -> None:
         if self._decoder is None:

@@ -121,7 +121,7 @@ async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = N
                 cfg = json.loads(msg["text"])
                 if cfg.get("type") == "config" and cfg.get("codec") == "hevc":
                     hevc = True
-                    session.configure_hevc(int(cfg["width"]), int(cfg["height"]))
+                    session.configure_hevc(int(cfg["width"]), int(cfg["height"]), cfg.get("fps"))
             elif msg.get("type") == "websocket.disconnect":
                 break
     except WebSocketDisconnect:

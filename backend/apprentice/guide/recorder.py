@@ -2,7 +2,7 @@
 
 out/sessions/<YYYYmmdd-HHMMSS>_<run>/
   stream.hevc     raw Annex B stream, one access unit per phone message
-  stream.mp4      the same stream remuxed (no re-encode) at the stream's frame rate, for replay/eval
+  stream.mp4      the same stream remuxed (no re-encode) at the phone's reported frame rate
   frames.jsonl    arrival time (s since session start) and size of each access unit
   ticks.jsonl     every state the dashboard received (progress, box, step, events, timing)
   meta.json       procedure, run name, stream size, start time, and a summary at the end
@@ -41,8 +41,10 @@ class Recorder:
         self._events: list[dict] = []
         self._write_meta()
 
-    def config(self, width: int, height: int) -> None:
+    def config(self, width: int, height: int, fps: int | None = None) -> None:
         self.meta.update(width=width, height=height)
+        if fps:
+            self.meta["stream_fps"] = fps
         self._write_meta()
 
     def unit(self, t: float, data: bytes) -> None:
@@ -68,7 +70,7 @@ class Recorder:
         last = self._last_state or {}
         self.meta.update(
             ended=time.strftime("%Y-%m-%dT%H:%M:%S"), access_units=self._units,
-            duration_s=round(self._units / STREAM_FPS, 1), cost_usd=last.get("cost_usd"),
+            duration_s=round(self._units / self.meta["stream_fps"], 1), cost_usd=last.get("cost_usd"),
             steps_done=[[e["t"], e["step"] + 1] for e in self._events if e["kind"] == "step_done"],
             instructions=[[e["t"], e["step"] + 1, e.get("play", {}).get("text")] for e in self._events
                           if e["kind"] == "instruct"],
@@ -87,7 +89,7 @@ class Recorder:
             threading.Thread(target=self._remux, daemon=True).start()
 
     def _remux(self) -> None:
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-r", str(STREAM_FPS), "-f", "hevc", "-i",
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-r", str(self.meta["stream_fps"]), "-f", "hevc", "-i",
                         str(self.dir / "stream.hevc"), "-c", "copy", "-tag:v", "hvc1", str(self.dir / "stream.mp4")],
                        check=False)
 

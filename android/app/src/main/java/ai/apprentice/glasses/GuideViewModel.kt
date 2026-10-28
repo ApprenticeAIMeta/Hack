@@ -133,7 +133,7 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
     buf.duplicate().get(bytes)
     if (frame.isCodecConfig || _ui.value.framesSent == 0) {
       ws.send(JSONObject().put("type", "config").put("codec", "hevc")
-          .put("width", frame.width).put("height", frame.height).toString())
+          .put("width", frame.width).put("height", frame.height).put("fps", FRAME_RATE).toString())
     }
     ws.send(bytes.toByteString())
     _ui.update { it.copy(framesSent = it.framesSent + 1) }
@@ -207,6 +207,8 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
 
   companion object {
     private const val TAG = "Apprentice"
-    private const val FRAME_RATE = 7
+    // 15 fps per Meta's guidance on the Bluetooth regression (android issue #162); the stream
+    // shed to 7 fps / ~55 kbps when 7 was requested
+    private const val FRAME_RATE = 15
   }
 }
