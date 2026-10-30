@@ -143,6 +143,28 @@ class SparkPolicy:
         return Check(d["verdict"] == "done", float(d["confidence"]), d["reason"], lat, cost,
                      unclear=d["verdict"] == "unclear")
 
+    def confirm(self, k: int, live: np.ndarray) -> Check:
+        """Has step k really finished? Locate answers run one step ahead because a shape still being
+        folded looks finished, so this is one either/or: the expert's work before the step, or after."""
+        steps = self.proc["steps"]
+        s = steps[k]
+        before, after = self.ref_crop(k - 1) if k else None, self.ref_crop(k)
+        content = [{"type": "text", "text": f"Task: {self.proc['task']}. Step: {s['instruction']}\nFinished when: {s['done_check']}"}]
+        if before is not None:
+            content += [{"type": "text", "text": "The expert's work before this step:"}, _jpeg_part(before, 384)]
+        if after is not None:
+            content += [{"type": "text", "text": "The expert's work when this step is finished:"}, _jpeg_part(after, 384)]
+        content += [{"type": "text", "text": "The novice's work now:"}, _jpeg_part(live),
+                    {"type": "text", "text": "Is this step fully finished on the novice's work? Answer not_done if any fold of this step "
+                     "is still missing or still being made, or if hands are partway through it. A later step's shape counts as done. "
+                     "Answer unclear only if the work is hidden. Keep the reason under 12 words."}]
+        r = self.client.chat([{"role": "user", "content": content}], model=SPARK, max_tokens=2000, reasoning_effort=self.effort,
+                             response_format={"type": "json_schema",
+                                              "json_schema": {"name": "confirm", "strict": True, "schema": DONE_SCHEMA}})
+        d = json.loads(r.text)
+        return Check(d["verdict"] == "done", float(d["confidence"]), d["reason"], r.latency_s, _cost(r.usage),
+                     unclear=d["verdict"] == "unclear", **_tokens(r.usage))
+
     def mistake(self, k: int, live: np.ndarray) -> Check:
         s = self.proc["steps"][k]
         lines = [v for st in self.proc["steps"] for v in st["voice"]]

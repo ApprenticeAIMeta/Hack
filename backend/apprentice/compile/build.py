@@ -46,7 +46,7 @@ MIN_WORDS = 3  # shorter utterances ("uh", "here") are fillers, not guidance
 
 
 def build(video: Path, name: str, recompile: bool = False, effort: str = "medium",
-          keywords: list[str] | None = None) -> Path:
+          keywords: list[str] | None = None, model: str = "spark") -> Path:
     client = MetaClient()
     cache = ROOT / "out" / "compile" / name
     dest = ROOT / "procedures" / name
@@ -76,15 +76,16 @@ def build(video: Path, name: str, recompile: bool = False, effort: str = "medium
     if not proxy.exists():
         media.proxy_video(video, proxy)
 
-    raw_path = cache / "steps_raw.json"
+    raw_path = cache / ("steps_raw.json" if model == "spark" else f"steps_raw_{model}.json")
     if raw_path.exists() and not recompile:
         raw = json.loads(raw_path.read_text())
     else:
-        proc, stats = steps.compile_steps(proxy, turns, client, effort=effort)
+        proc, stats = (steps.compile_steps(proxy, turns, client, effort=effort) if model == "spark"
+                       else steps.compile_steps_open(proxy, turns, effort=effort))
         raw = {"procedure": proc, "stats": stats}
         raw_path.write_text(json.dumps(raw, indent=1))
         cost["steps"] = spark_cost(stats["usage"])
-        print(f"spark compile: {stats['latency_s']} s")
+        print(f"{model} compile: {stats['latency_s']} s")
     proc = raw["procedure"]
 
     scores, _ = score_video(proxy)
@@ -116,7 +117,7 @@ def build(video: Path, name: str, recompile: bool = False, effort: str = "medium
                    "width": info["width"], "height": info["height"], "audio_mean_db": round(level, 1)},
         "steps": out_steps,
         "transcript": transcribe.to_json(turns),
-        "compile": {"spark_model": "muse-spark-1.3", "effort": effort, "wall_s": round(time.perf_counter() - t_all, 1),
+        "compile": {"spark_model": "muse-spark-1.3" if model == "spark" else steps.SPARK_OPEN, "effort": effort, "wall_s": round(time.perf_counter() - t_all, 1),
                     "cost_usd_this_run": {k: round(v, 4) for k, v in cost.items()},
                     "compiled_at": time.strftime("%Y-%m-%dT%H:%M:%S")},
     }
@@ -131,10 +132,12 @@ def main() -> None:
     ap.add_argument("--name", required=True)
     ap.add_argument("--recompile", action="store_true", help="call Spark again even if cached")
     ap.add_argument("--effort", default="medium", choices=["minimal", "low", "medium", "high"])
+    ap.add_argument("--model", default="spark", choices=["spark", "spark-open"],
+                    help="spark-open runs the compile on open weights (Baseten)")
     ap.add_argument("--keywords", default="", help="comma-separated domain words to bias transcription")
     a = ap.parse_args()
     kw = [k.strip() for k in a.keywords.split(",") if k.strip()] or None
-    out = build(a.video.resolve(), a.name, a.recompile, a.effort, kw)
+    out = build(a.video.resolve(), a.name, a.recompile, a.effort, kw, a.model)
     p = json.loads(out.read_text())
     for s in p["steps"]:
         print(f"{s['id']} [{s['t_start']:6.1f}-{s['t_end']:6.1f}] {s['title']:<28} "

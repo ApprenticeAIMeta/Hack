@@ -8,11 +8,19 @@ the turns (see clips.py), never taken from Spark.
 
 from __future__ import annotations
 
+import base64
 import json
+import os
+import time
 from pathlib import Path
+
+import httpx
 
 from apprentice.compile.transcribe import Turn
 from apprentice.models.meta import SPARK, MetaClient
+
+SPARK_OPEN = "meta-models/muse-spark-open-1026"
+BASETEN_URL = "https://inference.baseten.co/v1"
 
 STEP = {
     "type": "object",
@@ -57,6 +65,30 @@ Rules:
 
 Timed transcript of the expert's narration (seconds):
 {turns}"""
+
+
+def compile_steps_open(video: Path, turns: list[Turn], effort: str = "medium") -> tuple[dict, dict]:
+    """The same compile on open weights: Muse Spark Open hosted on Baseten. Too slow for live checks
+    (docs/open-weights.md), but a compile has no one waiting on it."""
+    lines = "\n".join(f"[{t.start:6.1f}-{t.end:6.1f}] {t.text}" for t in turns) or "(no usable narration)"
+    url = "data:video/mp4;base64," + base64.b64encode(video.read_bytes()).decode()
+    t0 = time.perf_counter()
+    r = httpx.post(f"{BASETEN_URL}/chat/completions", timeout=600,
+                   headers={"Authorization": f"Bearer {os.environ['BASETEN_API_KEY']}"},
+                   json={"model": SPARK_OPEN, "max_tokens": 16000, "reasoning_effort": effort,
+                         "messages": [{"role": "user", "content": [
+                             {"type": "text", "text": PROMPT.format(turns=lines)},
+                             {"type": "video_url", "video_url": {"url": url}}]}],
+                         "response_format": {"type": "json_schema",
+                                             "json_schema": {"name": "procedure", "strict": True, "schema": SCHEMA}}})
+    r.raise_for_status()
+    data = r.json()
+    proc = json.loads(data["choices"][0]["message"]["content"])
+    proc["steps"].sort(key=lambda s: s["t_start"])
+    u = data.get("usage", {})
+    usage = {"input_tokens": u.get("prompt_tokens", 0), "output_tokens": u.get("completion_tokens", 0),
+             "input_tokens_details": {"cached_tokens": (u.get("prompt_tokens_details") or {}).get("cached_tokens", 0)}}
+    return proc, {"latency_s": round(time.perf_counter() - t0, 1), "usage": usage}
 
 
 def compile_steps(video: Path, turns: list[Turn], client: MetaClient, effort: str = "medium") -> tuple[dict, dict]:
