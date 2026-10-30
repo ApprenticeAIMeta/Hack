@@ -4,7 +4,7 @@ Progress decides when to ask; Spark decides. A locate check shows Spark the expe
 for every step and asks how many steps the novice's workpiece has completed (asking "is step k
 done?" fails once the novice has moved past k and the shape no longer matches k's picture).
 Steps move forward only, when two consecutive locate answers agree the novice is past the current
-step, or one step at a time on a single very confident answer about a still; a step the novice skipped or already
+step, or one step at a time on a single very confident answer about a still that progress backs up; a step the novice skipped or already
 did is passed without ever being read out.
 
 Mistake triggers, both answered by a Spark mistake check before anything is said:
@@ -38,6 +38,7 @@ class Config:
     done_conf: float = 0.6       # locate answers below this are ignored
     done_fast_conf: float = 0.85 # one locate answer this confident about a still moves on by one step
                                  # (on stream frames such answers were exact only 2 of 10 times: docs/stills-test.md)
+    fast_gate: float = 0.0       # a one-answer advance also needs progress within this of the step's end
     drop: float = 0.12           # regression: this far below the recent peak...
     drop_ticks: int = 3          # ...for this many ticks
     peak_window_s: float = 20.0
@@ -142,7 +143,8 @@ class Tracker:
                 n = res.completed
                 if n > self.k:
                     self.here = 0
-                    fast = res.source == "photo" and res.confidence >= self.cfg.done_fast_conf
+                    fast = (res.source == "photo" and res.confidence >= self.cfg.done_fast_conf and p is not None
+                            and p >= self.ranges[self.k][1] - self.cfg.fast_gate)
                     if fast or self.ahead is not None:
                         target = self.k + 1 if fast else min(n, self.ahead)
                         for j in range(self.k, target):
