@@ -3,8 +3,9 @@
 Progress decides when to ask; Spark decides. A locate check shows Spark the expert's end state
 for every step and asks how many steps the novice's workpiece has completed (asking "is step k
 done?" fails once the novice has moved past k and the shape no longer matches k's picture).
-Steps move forward only, and only when two consecutive locate answers agree the novice is past
-the current step; a step the novice skipped or already did is passed without ever being read out.
+Steps move forward only, when two consecutive locate answers agree the novice is past the current
+step, or one step at a time on a single very confident answer; a step the novice skipped or already
+did is passed without ever being read out.
 
 Mistake triggers, both answered by a Spark mistake check before anything is said:
   regression  smoothed progress falls well below its recent peak (the work went backwards)
@@ -35,13 +36,14 @@ class Config:
     poll_s: float = 8.0          # fallback: ask "done?" at least this often
     min_gap_s: float = 2.0       # between checks of the same kind
     done_conf: float = 0.6       # locate answers below this are ignored
+    done_fast_conf: float = 0.85 # one locate answer this confident moves on by one step
     drop: float = 0.12           # regression: this far below the recent peak...
     drop_ticks: int = 3          # ...for this many ticks
     peak_window_s: float = 20.0
     novelty_drop: float = 0.15   # novelty: similarity this far below its recent median...
     novelty_ticks: int = 3       # ...for this many ticks
     novelty_window: int = 60
-    mistake_conf: float = 0.75   # a warning needs two positive mistake checks in a row
+    mistake_conf: float = 0.75   # a warning needs two positive mistake checks in a row, at any confidence
     warn_cooldown_s: float = 12.0
 
 
@@ -139,8 +141,9 @@ class Tracker:
                 n = res.completed
                 if n > self.k:
                     self.here = 0
-                    if self.ahead is not None:
-                        target = min(n, self.ahead)
+                    fast = res.confidence >= self.cfg.done_fast_conf
+                    if fast or self.ahead is not None:
+                        target = self.k + 1 if fast else min(n, self.ahead)
                         for j in range(self.k, target):
                             self._emit(arrival, "step_done", j, reason=res.reason)
                         if target >= len(self.ranges):

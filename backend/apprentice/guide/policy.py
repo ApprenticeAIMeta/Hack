@@ -28,6 +28,13 @@ class Check:
     utterance_id: int | None = None
     unclear: bool = False        # the view did not show enough to judge; counts neither way
     completed: int | None = None # locate: how many steps the workpiece shows as done
+    prompt_tokens: int = 0
+    cached_tokens: int = 0
+
+
+def _tokens(u: dict) -> dict:
+    return {"prompt_tokens": u.get("prompt_tokens", 0),
+            "cached_tokens": (u.get("prompt_tokens_details") or {}).get("cached_tokens", 0)}
 
 
 def _jpeg_part(img: np.ndarray, width: int = 640) -> dict:
@@ -51,7 +58,7 @@ LOCATE_SCHEMA = {"type": "object", "additionalProperties": False,
                  "properties": {"completed": {"type": "integer", "description": "number of steps whose result is visible, 0..N"},
                                 "confidence": {"type": "number"},
                                 "unclear": {"type": "boolean", "description": "workpiece hidden or out of view"},
-                                "reason": {"type": "string"}},
+                                "reason": {"type": "string", "description": "under 12 words"}},
                  "required": ["completed", "confidence", "unclear", "reason"]}
 
 MISTAKE_SCHEMA = {"type": "object", "additionalProperties": False,
@@ -113,15 +120,16 @@ class SparkPolicy:
         content.append({"type": "text", "text":
                         f"How many steps has the novice completed (0 to {len(steps)})? Pick the latest expert state "
                         "the novice's workpiece has reached. A step in progress is not completed. "
-                        "Set unclear only if the workpiece is hidden or out of view."})
+                        "Set unclear only if the workpiece is hidden or out of view. Keep the reason under 12 words."})
+        # Everything up to the live frame is the same on every call, so it is sent first and cached
         r = self.client.chat([{"role": "user", "content": content}], model=SPARK, max_tokens=2000,
-                             reasoning_effort=self.effort,
+                             reasoning_effort=self.effort, prompt_cache_key=f"locate-{self.proc['name']}",
                              response_format={"type": "json_schema",
                                               "json_schema": {"name": "locate", "strict": True, "schema": LOCATE_SCHEMA}})
         d = json.loads(r.text)
         n = max(0, min(len(steps), int(d["completed"])))
         return Check(False, float(d["confidence"]), d["reason"], r.latency_s, _cost(r.usage),
-                     unclear=bool(d["unclear"]), completed=n)
+                     unclear=bool(d["unclear"]), completed=n, **_tokens(r.usage))
 
     def done(self, k: int, live: np.ndarray) -> Check:
         s = self.proc["steps"][k]
