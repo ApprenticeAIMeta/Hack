@@ -5,7 +5,7 @@ Weights are from the participant guide. Items marked planned are not built yet.
 | Criterion | Evidence |
 |---|---|
 | Impact (30%) | Expert knowledge leaves with retiring trades workers. The guide works from one recording of one expert, with no written manual. |
-| Meta AI tooling (25%) | Five models with separate jobs, below. Spark checks are sent a still taken for the check, with a cached prefix of reference images. Planned: an open-weight checker. |
+| Meta AI tooling (25%) | Five models with separate jobs, below. Spark checks are sent a still taken for the check, with a cached prefix of reference images. Planned: an offline open-weight path; Spark Open was too slow for live checks ([open-weights.md](open-weights.md)). |
 | Demo (25%) | `/?demo=1` replays a recorded run with no glasses. Each model's latency is shown on screen, and runs are labeled live or replay. |
 | Technical depth (20%) | Training simulates the Bluetooth stream ([progress-notes.md](progress-notes.md)). Spark's answers must agree or be very confident before a step moves ([guide-notes.md](guide-notes.md)). Measured results are in [eval.md](eval.md) and [api-notes.md](api-notes.md). |
 
