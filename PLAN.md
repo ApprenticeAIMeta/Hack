@@ -25,8 +25,9 @@ Judges remember one moment, so the video builds to a single climax instead of th
   where the expert departs from the manual, and why. This establishes that the system holds knowledge
   the manual does not.
 - **Climax: the catch.** The novice makes a mistake nobody listed. On the live mirror (novice view next
-  to the expert's frame at the same progress) the novice's progress curve drops, and the expert's own
-  recorded voice warns them through the glasses. Mirror, curve, and voice land in one shot.
+  to the expert's frame at the same progress) the novice's progress curve drops, the phone turns into
+  a full-screen warning beside the expert's picture, and the expert's recorded voice plays with it.
+  The visual always carries the guidance; audio complements it and is never the only channel.
 - The climax must be reliable on camera: single-frame Spark checks get fooled by viewpoint
   (docs/api-notes.md), so the catch is driven by the progress model plus a reference-frame check, and
   the mistake is rehearsed and verified in replay before filming.
