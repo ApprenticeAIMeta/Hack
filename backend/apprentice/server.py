@@ -13,6 +13,8 @@
   GET /guide?procedure=airplane      guide screen for the novice's phone (web/guide.html)
   GET /api/procedure/{name}          compiled procedure
   GET /api/mirror/{name}/{t}.jpg     the expert's frame at time t (the mirror side)
+  POST /api/demo?session=<dir>       replay a recorded session to the screens, no glasses or API calls
+                                     (default: the longest in demo/, then in out/sessions/)
   GET /procedures/...                voice clips and reference frames
 
 One device session at a time (a demo has one novice); a new device connection replaces it.
@@ -24,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import re
 from pathlib import Path
 
 import cv2
@@ -47,6 +50,7 @@ _guides: set[WebSocket] = set()
 _guide_frame_t = -1e9
 _device: WebSocket | None = None
 _mirror: dict[str, tuple[float, list[bytes]]] = {}
+_demo: asyncio.Task | None = None
 
 
 def embedder() -> Embedder:
@@ -115,10 +119,64 @@ async def _broadcast(msg: dict) -> None:
                     pass
 
 
+def _recordings() -> list[Path]:
+    """Playable recordings, best last: bundled demo/ runs win over out/sessions/, then the longest."""
+    found = [d for base in (ROOT / "demo", ROOT / "out" / "sessions") for d in base.glob("*")
+             if (d / "stream.mp4").exists() and (d / "ticks.jsonl").exists()]
+    return sorted(found, key=lambda d: (d.parent.name == "demo", (d / "ticks.jsonl").stat().st_size))
+
+
+def _read_recording(d: Path) -> tuple[list[tuple[float, bytes]], list[dict]]:
+    arrivals = [json.loads(l)["t"] for l in (d / "frames.jsonl").read_text().splitlines()]
+    ticks = [json.loads(l) for l in (d / "ticks.jsonl").read_text().splitlines()]
+    frames, _ = read_frames(d / "stream.mp4")
+    # The phone sends parameter sets inside access units, so frames line up with units from the end of the list
+    times = arrivals[-len(frames):] if len(frames) <= len(arrivals) else [i / 7 for i in range(len(frames))]
+    return [(t, cv2.imencode(".jpg", f, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes()) for t, f in zip(times, frames)], ticks
+
+
+async def _play(d: Path) -> None:
+    meta = json.loads((d / "meta.json").read_text())
+    frames, ticks = await asyncio.get_running_loop().run_in_executor(None, _read_recording, d)
+    timeline = sorted([(t, 0, {"type": "frame", "t": t, "jpeg": j}) for t, j in frames]
+                      + [(m["t"], 1, m) for m in ticks], key=lambda x: x[:2])
+    await _broadcast({"type": "session", "procedure": meta["procedure"], "run": meta["run"], "status": "started", "mode": "replay"})
+    t0 = asyncio.get_running_loop().time()
+    for t, _, msg in timeline:
+        await asyncio.sleep(max(0.0, t0 + t - asyncio.get_running_loop().time()))
+        await _broadcast(msg)
+    await _broadcast({"type": "session", "procedure": meta["procedure"], "status": "ended", "mode": "replay"})
+
+
+def _stop_demo() -> None:
+    global _demo
+    if _demo and not _demo.done():
+        _demo.cancel()
+    _demo = None
+
+
+@app.post("/api/demo")
+async def demo(session: str | None = None) -> dict:
+    global _demo
+    if _device is not None:
+        raise HTTPException(409, "the glasses are streaming; stop them to play a recording")
+    runs = _recordings()
+    if session is not None:
+        if not re.fullmatch(r"[\w-]+", session):
+            raise HTTPException(400, "bad session name")
+        runs = [d for d in runs if d.name == session]
+    if not runs:
+        raise HTTPException(404, "no recording; run a session first")
+    _stop_demo()
+    _demo = asyncio.create_task(_play(runs[-1]))
+    return {"session": runs[-1].name}
+
+
 @app.websocket("/ws/device")
 async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = None) -> None:
     global _session, _device
     await ws.accept()
+    _stop_demo()
     loop = asyncio.get_running_loop()
 
     def publish(msg: dict) -> None:  # called from the session's worker thread
@@ -129,7 +187,7 @@ async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = N
     emb = await loop.run_in_executor(None, embedder)
     _session = session = Session(procedure, publish, emb, run=run)
     _device = ws
-    await _broadcast({"type": "session", "procedure": procedure, "run": run, "status": "started"})
+    await _broadcast({"type": "session", "procedure": procedure, "run": run, "status": "started", "mode": "live"})
     hevc = False
     try:
         while True:
@@ -149,7 +207,7 @@ async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = N
         session.close()
         if _device is ws:
             _device = None
-        await _broadcast({"type": "session", "procedure": procedure, "status": "ended"})
+        await _broadcast({"type": "session", "procedure": procedure, "status": "ended", "mode": "live"})
 
 
 async def _viewer(ws: WebSocket, sockets: set[WebSocket]) -> None:

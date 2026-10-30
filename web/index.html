@@ -277,7 +277,10 @@ function onState(m) {
     }
   }
   for (const ev of m.events) {
-    if (ev.kind === "check") flash("m-spark", 1500);
+    if (ev.kind === "check") {
+      flash("m-spark", 1500);
+      $("m-spark").textContent = `Muse Spark checks the step, ${ev.latency_s.toFixed(1)} s`;
+    }
     if (ev.kind === "step_done") done.add(ev.step);
     if (ev.kind === "complete") done.add(ev.step);
     if (ev.kind === "warn") { warns.push(ev.t); showWarn(ev); }
@@ -287,6 +290,10 @@ function onState(m) {
   if (m.finished) proc && proc.steps.forEach((_, i) => done.add(i));
   if (proc) renderSteps();
   $("cost").textContent = `$${m.cost_usd.toFixed(2)} so far`;
+  if (m.box && m.timing_ms) {
+    $("m-sam").textContent = `SAM 3.1 finds the workpiece, ${(m.timing_ms.sam / 1000).toFixed(1)} s`;
+    $("m-dino").textContent = `DINOv2 scores progress, ${m.timing_ms.model} ms`;
+  }
   drawChart();
 }
 
@@ -325,16 +332,22 @@ function connect() {
       $("novice").src = "data:image/jpeg;base64," + m.jpeg;
       $("novice-empty").style.display = "none";
     } else if (m.type === "state") onState(m);
-    else if (m.type === "session") {
+    else if (m.type === "capped") {
+      $("status").textContent = `Stopped at the $${m.cap_usd} spending limit`;
+      $("status").classList.remove("live");
+    } else if (m.type === "session") {
       const live = m.status === "started";
-      $("status").textContent = live ? "Glasses live" : "Session ended";
-      $("status").classList.toggle("live", live);
+      const replay = m.mode === "replay";
+      $("status").textContent = !live ? (replay ? "Replay ended" : "Session ended") : replay ? "Replay of a recorded run" : "Live from the glasses";
+      $("status").classList.toggle("live", live && !replay);
+      document.querySelector(".novice small").textContent = replay ? "recorded from the glasses" : "live from the glasses";
       if (live) { curve.length = 0; warns.length = 0; done = new Set(); current = 0; $("voice").innerHTML = ""; }
     }
   };
   ws.onclose = () => setTimeout(connect, 1500);
 }
 connect();
+if (new URLSearchParams(location.search).has("demo")) fetch("/api/demo", { method: "POST" });
 </script>
 </body>
 </html>

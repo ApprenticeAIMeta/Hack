@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -35,6 +36,7 @@ from apprentice.progress.model import ProgressModel
 ROOT = Path(__file__).resolve().parents[3]
 SMOOTH = 5
 REACQUIRE = 10
+SPEND_CAP_USD = float(os.environ.get("SPEND_CAP_USD", "10"))   # across all sessions of this server
 
 
 def _iou(a, b) -> float:
@@ -65,6 +67,8 @@ class _FutureHandle:
 
 
 class Session:
+    spent_usd = 0.0     # closed sessions, so a restarted stream cannot walk past the cap
+
     def __init__(self, procedure: str, publish: Callable[[dict], None], embedder: Embedder,
                  client: MetaClient | None = None, run: str | None = None, record: bool = True):
         self.name = procedure
@@ -87,6 +91,7 @@ class Session:
         self.curve: list[tuple[float, float]] = []
         self.voice = {v["turn_id"]: v for s in self.proc["steps"] for v in s["voice"]}
         self.cost = 0.0
+        self.capped = False
         self._latest: tuple[float, np.ndarray] | None = None
         self._decoder: av.CodecContext | None = None
         self.frames_in = self.frames_gated = 0
@@ -147,6 +152,7 @@ class Session:
     def close(self) -> None:
         self._decoder = None
         self._stop = True
+        Session.spent_usd += self.cost
         if self.recorder:
             self.recorder.close()
         with self._cv:
@@ -215,6 +221,11 @@ class Session:
                 self.publish({"type": "error", "t": round(t, 2), "message": str(e)[:300]})
 
     def _tick(self, t: float, frame: np.ndarray) -> None:
+        if Session.spent_usd + self.cost >= SPEND_CAP_USD:     # stops new calls; frames keep recording
+            if not self.capped:
+                self.capped = True
+                self.publish({"type": "capped", "t": round(t, 2), "cap_usd": SPEND_CAP_USD})
+            return
         t_start = time.time()
         box = self._workpiece(frame)
         t_sam = time.time()

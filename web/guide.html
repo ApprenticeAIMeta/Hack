@@ -152,7 +152,10 @@
   }
 
   function handle(m) {
-    if (m.type === 'frame') {
+    if (m.type === 'capped') {
+      $('wait-text').textContent = 'Guidance paused: spending limit reached';
+      $('wait').hidden = false;
+    } else if (m.type === 'frame') {
       frame.src = 'data:image/jpeg;base64,' + m.jpeg;
     } else if (m.type === 'session') {
       if (m.status === 'started') {
