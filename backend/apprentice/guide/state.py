@@ -131,7 +131,7 @@ class Tracker:
         self.pending = waiting
         for asked, kind, step, (arrival, res) in sorted(due, key=lambda x: x[3][0]):
             self._emit(arrival, "check", step, check=kind, asked=round(asked, 2), yes=res.yes, completed=res.completed,
-                       unclear=res.unclear, conf=res.confidence, reason=res.reason,
+                       unclear=res.unclear, conf=res.confidence, reason=res.reason, source=res.source,
                        latency_s=round(res.latency_s, 2), cost=res.cost)
             if step != self.k or self.finished:
                 continue                                  # stale: we moved on

@@ -4,12 +4,15 @@
 
 Sends each frame as JPEG at the clip's frame rate and prints the guidance the phone would play.
 With --hevc, sends the clip's raw HEVC bitstream instead, exactly as the phone app forwards it.
+With --photos, also answers the server's still requests like the phone (upscaled stream frames after
+a capture delay, so this tests the protocol and timing, not the sharpness of a real still).
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import json
 import subprocess
 import time
@@ -33,13 +36,31 @@ def hevc_access_units(path: str) -> list[bytes]:
     return units
 
 
-async def feed(path: str, url: str, speed: float, hevc: bool = False) -> None:
+async def feed(path: str, url: str, speed: float, hevc: bool = False, photos: bool = False,
+               fail_every: int = 0) -> None:
     cap = cv2.VideoCapture(path)
     fps = cap.get(cv2.CAP_PROP_FPS) or 7.0
     async with websockets.connect(url, max_size=None) as ws:
+        async def snap(photo_id: int):
+            at = time.time() - t0
+            await asyncio.sleep(2.5)    # measured capture time on 1.0.1: about 2-3 s
+            msg = {"type": "photo", "id": photo_id}
+            if not (fail_every and photo_id % fail_every == 0):
+                still = cv2.VideoCapture(path)
+                still.set(cv2.CAP_PROP_POS_FRAMES, int(at * fps))
+                ok, f = still.read()
+                if ok:
+                    big = cv2.resize(f, (1080, 1920), interpolation=cv2.INTER_CUBIC)
+                    msg["jpeg"] = base64.b64encode(cv2.imencode(".jpg", big)[1].tobytes()).decode()
+            await ws.send(json.dumps(msg))
+            print(f"[{time.time() - t0:6.1f}s] photo {photo_id} {'sent' if 'jpeg' in msg else 'failed'}")
+
         async def listen():
             async for m in ws:
                 ev = json.loads(m)
+                if ev.get("type") == "snap":
+                    asyncio.create_task(snap(ev["id"]))
+                    continue
                 print(f"[{time.time() - t0:6.1f}s] ♪ {ev.get('kind')}: \"{ev.get('text')}\"  {ev.get('url')}")
 
         t0 = time.time()
@@ -48,7 +69,7 @@ async def feed(path: str, url: str, speed: float, hevc: bool = False) -> None:
         if hevc:
             units = hevc_access_units(path)
             w, h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            await ws.send(json.dumps({"type": "config", "codec": "hevc", "width": w, "height": h}))
+            await ws.send(json.dumps({"type": "config", "codec": "hevc", "width": w, "height": h, "photos": photos}))
         i = 0
         while True:
             if units is not None:
@@ -74,8 +95,10 @@ def main() -> None:
     ap.add_argument("--url", default="ws://localhost:8000/ws/device?procedure=airplane")
     ap.add_argument("--speed", type=float, default=1.0)
     ap.add_argument("--hevc", action="store_true", help="send raw HEVC like the phone app")
+    ap.add_argument("--photos", action="store_true", help="answer still requests like the phone (needs --hevc)")
+    ap.add_argument("--fail-every", type=int, default=0, help="fail every Nth still")
     a = ap.parse_args()
-    asyncio.run(feed(a.video, a.url, a.speed, a.hevc))
+    asyncio.run(feed(a.video, a.url, a.speed, a.hevc, a.photos, a.fail_every))
 
 
 if __name__ == "__main__":

@@ -6,7 +6,9 @@
                                      phone: sends {"type": "config", "codec": "hevc", "width", "height"}
                                      then the glasses' HEVC stream as binary messages (or plain JPEG
                                      frames with no config, as tools/feed.py does); receives guidance
-                                     events ({"type": "play", "url", "text", "kind"}) as JSON text
+                                     events ({"type": "play", "url", "text", "kind"}) as JSON text.
+                                     A config with "photos": true also gets {"type": "snap", "id"} and
+                                     answers {"type": "photo", "id", "jpeg": base64} (no jpeg = failed)
   WS  /ws/dashboard                  dashboard: receives state snapshots and frames
   WS  /ws/guide                      guide screen: the same, with frames thinned to GUIDE_FPS
   GET /                              dashboard page (web/index.html)
@@ -101,6 +103,10 @@ async def _send_all(sockets: set[WebSocket], text: str) -> None:
 
 async def _broadcast(msg: dict) -> None:
     global _guide_frame_t
+    if msg["type"] == "snap":
+        if _device is not None:
+            await _device.send_text(json.dumps(msg))
+        return
     if msg["type"] == "frame":
         text = json.dumps({"type": "frame", "t": msg["t"], "jpeg": base64.b64encode(msg["jpeg"]).decode()})
         if not 0 <= msg["t"] - _guide_frame_t < 1 / GUIDE_FPS:   # a new session restarts t
@@ -199,6 +205,9 @@ async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = N
                 if cfg.get("type") == "config" and cfg.get("codec") == "hevc":
                     hevc = True
                     session.configure_hevc(int(cfg["width"]), int(cfg["height"]), cfg.get("fps"))
+                    session.photos_on = bool(cfg.get("photos"))
+                elif cfg.get("type") == "photo":
+                    session.on_photo(int(cfg["id"]), base64.b64decode(cfg["jpeg"]) if cfg.get("jpeg") else None)
             elif msg.get("type") == "websocket.disconnect":
                 break
     except WebSocketDisconnect:

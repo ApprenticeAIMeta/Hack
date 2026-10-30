@@ -1,13 +1,17 @@
 package ai.apprentice.glasses
 
 import android.app.Application
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.util.Base64
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.meta.wearable.dat.camera.Camera
 import com.meta.wearable.dat.camera.addCamera
+import com.meta.wearable.dat.camera.types.PhotoData
 import com.meta.wearable.dat.camera.types.StreamConfiguration
 import com.meta.wearable.dat.camera.types.StreamState
 import com.meta.wearable.dat.camera.types.VideoFrame
@@ -19,6 +23,7 @@ import com.meta.wearable.dat.core.session.DeviceSessionState
 import com.meta.wearable.dat.core.types.Permission
 import com.meta.wearable.dat.core.types.PermissionStatus
 import com.meta.wearable.dat.core.types.RegistrationState
+import java.io.ByteArrayOutputStream
 import java.util.ArrayDeque
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
@@ -63,6 +68,7 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
   private var socket: WebSocket? = null
   private var session: DeviceSession? = null
   private var camera: Camera? = null
+  private var stream: com.meta.wearable.dat.camera.Stream? = null
   private val clips = ArrayDeque<String>()
   private var player: MediaPlayer? = null
 
@@ -112,6 +118,7 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
         .onSuccess { cam ->
           camera = cam
           val stream = cam.stream
+          this.stream = stream
           viewModelScope.launch(Dispatchers.Default) { stream.videoStream.collect { send(it) } }
           viewModelScope.launch {
             stream.state.collect { st ->
@@ -131,7 +138,7 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
     buf.duplicate().get(bytes)
     if (frame.isCodecConfig || _ui.value.framesSent == 0) {
       ws.send(JSONObject().put("type", "config").put("codec", "hevc")
-          .put("width", frame.width).put("height", frame.height).put("fps", FRAME_RATE).toString())
+          .put("width", frame.width).put("height", frame.height).put("fps", FRAME_RATE).put("photos", true).toString())
     }
     ws.send(bytes.toByteString())
     _ui.update { it.copy(framesSent = it.framesSent + 1) }
@@ -145,6 +152,10 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
     socket = http.newWebSocket(req, object : WebSocketListener() {
       override fun onMessage(webSocket: WebSocket, text: String) {
         val m = JSONObject(text)
+        if (m.optString("type") == "snap") {
+          snap(webSocket, m.getInt("id"))
+          return
+        }
         if (m.optString("type") == "play") {
           enqueue(u.server.replaceFirst("ws", "http") + m.getString("url"))
         }
@@ -154,6 +165,31 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
         if (_ui.value.running) fail("Server connection lost: ${t.message}")
       }
     })
+  }
+
+  /** Takes a still during the stream for a Spark check; the server falls back to stream frames if it fails. */
+  private fun snap(ws: WebSocket, id: Int) {
+    val s = stream
+    viewModelScope.launch(Dispatchers.Default) {
+      val answer = JSONObject().put("type", "photo").put("id", id)
+      s?.capturePhoto()
+          ?.onSuccess { photo -> jpegOf(photo)?.let { answer.put("jpeg", Base64.encodeToString(it, Base64.NO_WRAP)) } }
+          ?.onFailure { e, _ -> Log.w(TAG, "capture: $e") }
+      ws.send(answer.toString())
+    }
+  }
+
+  private fun jpegOf(photo: PhotoData): ByteArray? {
+    val bitmap =
+        when (photo) {
+          is PhotoData.Bitmap -> photo.bitmap
+          is PhotoData.HEIC -> {
+            val bytes = ByteArray(photo.data.remaining())
+            photo.data.duplicate().get(bytes)
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+          }
+        } ?: return null
+    return ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }.toByteArray()
   }
 
   /** Clips play one after another; a warning jumps the queue. */
@@ -191,6 +227,7 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
   private fun teardown() {
     camera?.stop()
     camera = null
+    stream = null
     session?.stop()
     session = null
     socket?.close(1000, "stop")

@@ -28,6 +28,7 @@ class Check:
     utterance_id: int | None = None
     unclear: bool = False        # the view did not show enough to judge; counts neither way
     completed: int | None = None # locate: how many steps the workpiece shows as done
+    source: str = "stream"       # what Spark looked at: a stream frame or a still taken for this check
     prompt_tokens: int = 0
     cached_tokens: int = 0
 

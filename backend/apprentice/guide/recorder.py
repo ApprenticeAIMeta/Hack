@@ -6,6 +6,7 @@ out/sessions/<YYYYmmdd-HHMMSS>_<run>/
   frames.jsonl    arrival time (s since session start) and size of each access unit
   ticks.jsonl     every state the dashboard received (progress, box, step, events, timing)
   meta.json       procedure, run name, stream size, start time, and a summary at the end
+  photos/         stills taken for Spark checks, named by arrival time in ms
   label.json      a stub for eval/labels: fill in step_done times and mistake windows
 
 So every live run doubles as a replayable recording and a new eval case.
@@ -54,6 +55,11 @@ class Recorder:
             self._hevc.write(data)
             self._frames.write(json.dumps({"t": round(t, 3), "bytes": len(data)}) + "\n")
             self._units += 1
+
+    def photo(self, t: float, jpeg: bytes) -> None:
+        d = self.dir / "photos"
+        d.mkdir(exist_ok=True)
+        (d / f"{round(t * 1000):07d}.jpg").write_bytes(jpeg)
 
     def state(self, msg: dict) -> None:
         with self._lock:

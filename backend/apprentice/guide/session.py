@@ -36,6 +36,8 @@ from apprentice.progress.model import ProgressModel
 ROOT = Path(__file__).resolve().parents[3]
 SMOOTH = 5
 REACQUIRE = 10
+PHOTO_MIN_GAP_S = 6.0   # each still freezes the stream for 2-3 s, so most ticks must not ask for one
+PHOTO_TIMEOUT_S = 5.0
 SPEND_CAP_USD = float(os.environ.get("SPEND_CAP_USD", "10"))   # across all sessions of this server
 
 
@@ -96,6 +98,12 @@ class Session:
         self._decoder: av.CodecContext | None = None
         self.frames_in = self.frames_gated = 0
         self._size: tuple[int, int] | None = None
+        self.photos_on = False
+        self._photo_lock = threading.Lock()   # the toolkit allows one capture in flight
+        self._photo_id = 0
+        self._photo_got: tuple[threading.Event, list] | None = None
+        self._photo_last = -1e9
+        self.photos_used = self.photos_failed = 0
         self._cv = threading.Condition()
         self._stop = False
         self._worker = threading.Thread(target=self._run, daemon=True)
@@ -162,8 +170,53 @@ class Session:
     # -- checks --------------------------------------------------------------------------
 
     def _ask(self, kind: str, step: int, frame: np.ndarray, t: float):
-        fn = (lambda: self.policy.locate(frame)) if kind == "done" else (lambda: self.policy.mistake(step, frame))
-        return _FutureHandle(self.pool.submit(fn))
+        def run() -> Check:
+            still = self._still()
+            view = frame if still is None else still
+            res = self.policy.locate(view) if kind == "done" else self.policy.mistake(step, view)
+            res.source = "stream" if still is None else "photo"
+            return res
+        return _FutureHandle(self.pool.submit(run))
+
+    # -- stills: the stream tracks the work, Spark judges it on a sharper picture when it can -----
+
+    def on_photo(self, photo_id: int, jpeg: bytes | None) -> None:
+        got = self._photo_got
+        if got and photo_id == self._photo_id:
+            got[1].append(jpeg)
+            got[0].set()
+
+    def _still(self) -> np.ndarray | None:
+        """A fresh still from the glasses cropped to the workpiece, or None to use the stream frame:
+        photos are off, one was taken moments ago or is in flight, or the capture failed."""
+        if not self.photos_on or time.time() - self._photo_last < PHOTO_MIN_GAP_S:
+            return None
+        if not self._photo_lock.acquire(blocking=False):
+            return None
+        try:
+            self._photo_last = time.time()
+            self._photo_id += 1
+            self._photo_got = (threading.Event(), [])
+            self._publish({"type": "snap", "id": self._photo_id})
+            arrived = self._photo_got[0].wait(PHOTO_TIMEOUT_S)
+            jpeg = self._photo_got[1][0] if arrived else None
+            self._photo_got = None
+            img = cv2.imdecode(np.frombuffer(jpeg, np.uint8), cv2.IMREAD_COLOR) if jpeg else None
+            if img is None:
+                self.photos_failed += 1
+                return None
+            self.photos_used += 1
+            if self.recorder:
+                self.recorder.photo(time.time() - self.t0, jpeg)
+            # A still is framed differently from the stream, so the stream's box does not carry over
+            with ThreadPoolExecutor(2) as ex:
+                wp, hands = ex.map(lambda p: self._sam(img, p), [self.proc["workpiece"], "hand"])
+            touched = [r for r in wp if any(_touches(r[:4], h[:4]) for h in hands)] or wp
+            if not touched:
+                return img
+            return self._view(img, max(touched, key=lambda r: (r[2] - r[0]) * (r[3] - r[1]) * r[4])[:4])
+        finally:
+            self._photo_lock.release()
 
     def _sam(self, frame: np.ndarray, prompt: str) -> list[tuple]:
         """(x1, y1, x2, y2, conf) per match with conf >= 0.5. `prompt` is a noun phrase or box tokens."""
@@ -258,6 +311,7 @@ class Session:
                       "finished": self.tracker.finished, "mirror_t": mirror_t, "events": events,
                       "tick_ms": round(1000 * (time.time() - t_start)), "cost_usd": round(self.cost, 4),
                       "frames_in": self.frames_in, "frames_gated": self.frames_gated,
+                      "photos": self.photos_used, "photos_failed": self.photos_failed,
                       "timing_ms": {"sam": round(1000 * (t_sam - t_start)), "model": round(1000 * (t_model - t_sam)),
                                     "tracker": round(1000 * (time.time() - t_model))}})
 
