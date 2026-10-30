@@ -8,7 +8,9 @@
                                      frames with no config, as tools/feed.py does); receives guidance
                                      events ({"type": "play", "url", "text", "kind"}) as JSON text
   WS  /ws/dashboard                  dashboard: receives state snapshots and frames
+  WS  /ws/guide                      guide screen: the same, with frames thinned to GUIDE_FPS
   GET /                              dashboard page (web/index.html)
+  GET /guide?procedure=airplane      guide screen for the novice's phone (web/guide.html)
   GET /api/procedure/{name}          compiled procedure
   GET /api/mirror/{name}/{t}.jpg     the expert's frame at time t (the mirror side)
   GET /procedures/...                voice clips and reference frames
@@ -34,12 +36,15 @@ from apprentice.progress.crop import read_frames
 from apprentice.progress.embed import Embedder
 
 ROOT = Path(__file__).resolve().parents[2]
+GUIDE_FPS = 2
 app = FastAPI(title="ApprenticeAI")
 app.mount("/procedures", StaticFiles(directory=ROOT / "procedures"), name="procedures")
 
 _embedder: Embedder | None = None
 _session: Session | None = None
 _dashboards: set[WebSocket] = set()
+_guides: set[WebSocket] = set()
+_guide_frame_t = -1e9
 _device: WebSocket | None = None
 _mirror: dict[str, tuple[float, list[bytes]]] = {}
 
@@ -54,6 +59,11 @@ def embedder() -> Embedder:
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(ROOT / "web" / "index.html")
+
+
+@app.get("/guide")
+def guide_page() -> FileResponse:
+    return FileResponse(ROOT / "web" / "guide.html")
 
 
 @app.get("/api/procedure/{name}")
@@ -77,16 +87,25 @@ def mirror(name: str, t: float) -> Response:
     return Response(frames[i], media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
 
 
-async def _broadcast(msg: dict) -> None:
-    if msg["type"] == "frame":
-        text = json.dumps({"type": "frame", "t": msg["t"], "jpeg": base64.b64encode(msg["jpeg"]).decode()})
-    else:
-        text = json.dumps(msg)
-    for ws in list(_dashboards):
+async def _send_all(sockets: set[WebSocket], text: str) -> None:
+    for ws in list(sockets):
         try:
             await ws.send_text(text)
         except Exception:
-            _dashboards.discard(ws)
+            sockets.discard(ws)
+
+
+async def _broadcast(msg: dict) -> None:
+    global _guide_frame_t
+    if msg["type"] == "frame":
+        text = json.dumps({"type": "frame", "t": msg["t"], "jpeg": base64.b64encode(msg["jpeg"]).decode()})
+        if not 0 <= msg["t"] - _guide_frame_t < 1 / GUIDE_FPS:   # a new session restarts t
+            _guide_frame_t = msg["t"]
+            await _send_all(_guides, text)
+    else:
+        text = json.dumps(msg)
+        await _send_all(_guides, text)
+    await _send_all(_dashboards, text)
     if msg["type"] == "state" and _device is not None:
         for ev in msg["events"]:
             if "play" in ev:
@@ -133,12 +152,21 @@ async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = N
         await _broadcast({"type": "session", "procedure": procedure, "status": "ended"})
 
 
-@app.websocket("/ws/dashboard")
-async def dashboard(ws: WebSocket) -> None:
+async def _viewer(ws: WebSocket, sockets: set[WebSocket]) -> None:
     await ws.accept()
-    _dashboards.add(ws)
+    sockets.add(ws)
     try:
         while True:
             await ws.receive_text()
     except WebSocketDisconnect:
-        _dashboards.discard(ws)
+        sockets.discard(ws)
+
+
+@app.websocket("/ws/dashboard")
+async def dashboard(ws: WebSocket) -> None:
+    await _viewer(ws, _dashboards)
+
+
+@app.websocket("/ws/guide")
+async def guide(ws: WebSocket) -> None:
+    await _viewer(ws, _guides)

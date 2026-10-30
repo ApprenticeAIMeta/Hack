@@ -44,8 +44,6 @@ data class GuideUi(
     val running: Boolean = false,
     val status: String = "Pair the glasses to begin",
     val framesSent: Int = 0,
-    val lastKind: String? = null,
-    val lastSaid: String? = null,
 )
 
 /**
@@ -54,7 +52,7 @@ data class GuideUi(
  * Streams the glasses camera as compressed HEVC (about 55 kbps over Bluetooth, 7 fps) straight
  * to the ApprenticeAI server, which decodes and runs the guide. The server answers with clips of
  * the expert's recorded voice; they play through the phone's audio output, which is the glasses
- * while they are connected.
+ * while they are connected. Sound only complements the guide screen, which shows the same guidance.
  */
 class GuideViewModel(app: Application) : AndroidViewModel(app) {
   private val _ui = MutableStateFlow(GuideUi())
@@ -148,7 +146,6 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
       override fun onMessage(webSocket: WebSocket, text: String) {
         val m = JSONObject(text)
         if (m.optString("type") == "play") {
-          _ui.update { it.copy(lastKind = m.optString("kind"), lastSaid = m.optString("text")) }
           enqueue(u.server.replaceFirst("ws", "http") + m.getString("url"))
         }
       }
