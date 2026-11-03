@@ -117,7 +117,7 @@ class SparkPolicy:
             ref = self.ref_crop(i)
             content.append(_jpeg_part(ref, 384) if ref is not None else {"type": "text", "text": s["done_check"]})
         content += [{"type": "text", "text": "The novice's workpiece now, cropped from a low-quality live stream "
-                     "(judge shape and folds; blur and compression are not damage):"}, _jpeg_part(live)]
+                     "(judge the visible state of the work; blur and compression are not damage):"}, _jpeg_part(live)]
         content.append({"type": "text", "text":
                         f"How many steps has the novice completed (0 to {len(steps)})? Pick the latest expert state "
                         "the novice's workpiece has reached. A step in progress is not completed. "
@@ -136,7 +136,7 @@ class SparkPolicy:
         s = self.proc["steps"][k]
         text = (f"Task: {self.proc['task']}. Workpiece: {self.proc['workpiece']}.\n"
                 f"Step: {s['instruction']}\nDone when: {s['done_check']}\n"
-                "Has the novice completed this step? Judge the workpiece's shape and folds, not the hands, "
+                "Has the novice completed this step? Judge the visible state of the workpiece, not the hands, "
                 "the view angle or the image quality; the stream is always low quality, judge what you can see. "
                 "Answer unclear only if the workpiece itself is hidden or out of view.")
         d, lat, cost = self._ask(text, live, k, DONE_SCHEMA, "done_check")
@@ -155,8 +155,8 @@ class SparkPolicy:
         if after is not None:
             content += [{"type": "text", "text": "The expert's work when this step is finished:"}, _jpeg_part(after, 384)]
         content += [{"type": "text", "text": "The novice's work now:"}, _jpeg_part(live),
-                    {"type": "text", "text": "Is this step fully finished on the novice's work? Answer not_done if any fold of this step "
-                     "is still missing or still being made, or if hands are partway through it. A later step's shape counts as done. "
+                    {"type": "text", "text": "Is this step fully finished on the novice's work? Answer not_done if any part of this step "
+                     "is still missing or still being done, or if hands are partway through it. A later step's state counts as done. "
                      "Answer unclear only if the work is hidden. Keep the reason under 12 words."}]
         r = self.client.chat([{"role": "user", "content": content}], model=SPARK, max_tokens=2000, reasoning_effort=self.effort,
                              response_format={"type": "json_schema",
