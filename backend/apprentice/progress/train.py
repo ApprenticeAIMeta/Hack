@@ -26,8 +26,8 @@ from apprentice.progress.embed import Embedder
 from apprentice.progress.model import Bank, ProgressModel
 
 ROOT = Path(__file__).resolve().parents[3]
-PROXY_W, FPS = 504, 2
-STREAM_FPS, STREAM_KBPS = 7, 55
+PROXY_W, FPS = 720, 2
+STREAM_FPS, STREAM_KBPS = 15, 330   # the glasses' stream as measured on Nov 3
 
 
 def _ff(*args: str) -> None:
@@ -42,7 +42,7 @@ def proxy(src: Path, dst: Path) -> Path:
 
 
 def stream_sim(src: Path, dst: Path) -> Path:
-    """What the same footage looks like after the glasses' Bluetooth stream, resampled to 2 fps."""
+    """What the same footage looks like after the glasses' stream (720p HEVC at about 330 kbps), resampled to 2 fps."""
     if not dst.exists():
         mid = dst.with_suffix(".s7.mp4")
         _ff("-i", str(src), "-an", "-vf", f"scale={PROXY_W}:-2,fps={STREAM_FPS}", "-c:v", "libx265",

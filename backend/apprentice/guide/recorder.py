@@ -95,8 +95,9 @@ class Recorder:
             threading.Thread(target=self._remux, daemon=True).start()
 
     def _remux(self) -> None:
+        # No hvc1 tag: the phone repeats parameter sets in band, and an hvc1 track decodes with errors at 720p
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-r", str(self.meta["stream_fps"]), "-f", "hevc", "-i",
-                        str(self.dir / "stream.hevc"), "-c", "copy", "-tag:v", "hvc1", str(self.dir / "stream.mp4")],
+                        str(self.dir / "stream.hevc"), "-c", "copy", str(self.dir / "stream.mp4")],
                        check=False)
 
     def _write_meta(self) -> None:
