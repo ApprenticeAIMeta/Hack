@@ -1,0 +1,20 @@
+@import "tailwindcss";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+/* Heads-up display: the camera feed is the screen, and everything else floats over it as glass. */
+@theme {
+  --font-sans: "Geist Variable", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+}
+
+html, body, #root { height: 100%; }
+body { margin: 0; background: #030507; color: #fff; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+
+/* faint scanlines over the feed */
+.scan::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgb(255 255 255 / .025) 0 1px, transparent 1px 3px);
+}
+.glow-cyan { filter: drop-shadow(0 0 6px rgb(103 232 249 / .8)); }
+.glow-amber { filter: drop-shadow(0 0 8px rgb(251 191 36 / .9)); }

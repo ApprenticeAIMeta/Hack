@@ -53,6 +53,7 @@ _guide_frame_t = -1e9
 _device: WebSocket | None = None
 _mirror: dict[str, tuple[float, list[bytes]]] = {}
 _demo: asyncio.Task | None = None
+_last_session: dict | None = None
 
 
 def embedder() -> Embedder:
@@ -62,14 +63,24 @@ def embedder() -> Embedder:
     return _embedder
 
 
+BUILD = ROOT / "web" / "build"   # React pages built from web/app; the plain pages in web/ are the fallback
+if (BUILD / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=BUILD / "assets"), name="assets")
+
+
+def _page(name: str) -> FileResponse:
+    built = BUILD / name
+    return FileResponse(built if built.exists() else ROOT / "web" / name)
+
+
 @app.get("/")
 def index() -> FileResponse:
-    return FileResponse(ROOT / "web" / "index.html")
+    return _page("index.html")
 
 
 @app.get("/guide")
 def guide_page() -> FileResponse:
-    return FileResponse(ROOT / "web" / "guide.html")
+    return _page("guide.html")
 
 
 @app.get("/api/procedure/{name}")
@@ -102,7 +113,7 @@ async def _send_all(sockets: set[WebSocket], text: str) -> None:
 
 
 async def _broadcast(msg: dict) -> None:
-    global _guide_frame_t
+    global _guide_frame_t, _last_session
     if msg["type"] == "snap":
         if _device is not None:
             await _device.send_text(json.dumps(msg))
@@ -113,6 +124,8 @@ async def _broadcast(msg: dict) -> None:
             _guide_frame_t = msg["t"]
             await _send_all(_guides, text)
     else:
+        if msg["type"] == "session":
+            _last_session = msg
         text = json.dumps(msg)
         await _send_all(_guides, text)
     await _send_all(_dashboards, text)
@@ -132,25 +145,55 @@ def _recordings() -> list[Path]:
     return sorted(found, key=lambda d: (d.parent.name == "demo", (d / "ticks.jsonl").stat().st_size))
 
 
-def _read_recording(d: Path) -> tuple[list[tuple[float, bytes]], list[dict]]:
+REPLAY_FPS, REPLAY_H = 8, 896   # replays are for review: decode as they play, thinned and scaled
+
+
+async def _play(d: Path, speed: float = 1.0) -> None:
+    """Replay a saved run in real time (or faster), decoding the video as it goes rather than up front."""
+    loop = asyncio.get_running_loop()
+    meta = json.loads((d / "meta.json").read_text())
     arrivals = [json.loads(l)["t"] for l in (d / "frames.jsonl").read_text().splitlines()]
     ticks = [json.loads(l) for l in (d / "ticks.jsonl").read_text().splitlines()]
-    frames, _ = read_frames(d / "stream.mp4")
+    cap = cv2.VideoCapture(str(d / "stream.mp4"))
+    n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or len(arrivals)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 7
     # The phone sends parameter sets inside access units, so frames line up with units from the end of the list
-    times = arrivals[-len(frames):] if len(frames) <= len(arrivals) else [i / 7 for i in range(len(frames))]
-    return [(t, cv2.imencode(".jpg", f, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes()) for t, f in zip(times, frames)], ticks
+    times = arrivals[-n:] if 0 < n <= len(arrivals) else [i / fps for i in range(n)]
 
+    def next_jpeg(i: int) -> bytes | None:
+        ok, f = cap.read()
+        if not ok:
+            return None
+        if i % max(1, round(fps / REPLAY_FPS)):
+            return b""
+        if f.shape[0] > REPLAY_H:
+            f = cv2.resize(f, (round(f.shape[1] * REPLAY_H / f.shape[0]), REPLAY_H), interpolation=cv2.INTER_AREA)
+        return cv2.imencode(".jpg", f, [cv2.IMWRITE_JPEG_QUALITY, 75])[1].tobytes()
 
-async def _play(d: Path) -> None:
-    meta = json.loads((d / "meta.json").read_text())
-    frames, ticks = await asyncio.get_running_loop().run_in_executor(None, _read_recording, d)
-    timeline = sorted([(t, 0, {"type": "frame", "t": t, "jpeg": j}) for t, j in frames]
-                      + [(m["t"], 1, m) for m in ticks], key=lambda x: x[:2])
-    await _broadcast({"type": "session", "procedure": meta["procedure"], "run": meta["run"], "status": "started", "mode": "replay"})
-    t0 = asyncio.get_running_loop().time()
-    for t, _, msg in timeline:
-        await asyncio.sleep(max(0.0, t0 + t - asyncio.get_running_loop().time()))
-        await _broadcast(msg)
+    await _broadcast({"type": "session", "procedure": meta["procedure"], "run": meta["run"], "status": "started",
+                      "mode": "replay", "session": d.name, "speed": speed})
+    t0, k = loop.time(), 0
+
+    async def until(t: float) -> None:
+        await asyncio.sleep(max(0.0, t0 + t / speed - loop.time()))
+
+    try:
+        for i, t in enumerate(times):
+            jpeg = await loop.run_in_executor(None, next_jpeg, i)
+            if jpeg is None:
+                break
+            while k < len(ticks) and ticks[k]["t"] <= t:
+                await until(ticks[k]["t"])
+                await _broadcast(ticks[k])
+                k += 1
+            if jpeg:
+                await until(t)
+                await _broadcast({"type": "frame", "t": t, "jpeg": jpeg})
+        for m in ticks[k:]:
+            await until(m["t"])
+            await _broadcast(m)
+    finally:
+        cap.release()
     await _broadcast({"type": "session", "procedure": meta["procedure"], "status": "ended", "mode": "replay"})
 
 
@@ -161,8 +204,39 @@ def _stop_demo() -> None:
     _demo = None
 
 
+@app.get("/api/sessions")
+def sessions() -> list[dict]:
+    """Saved runs, newest first, for replaying on the dashboard."""
+    out = []
+    for d in reversed(_recordings()):
+        try:
+            m = json.loads((d / "meta.json").read_text())
+        except (OSError, ValueError):
+            continue
+        out.append({"session": d.name, "run": m.get("run"), "procedure": m.get("procedure"), "started": m.get("started"),
+                    "duration_s": m.get("duration_s"), "steps_done": len(m.get("steps_done", [])),
+                    "warnings": len(m.get("warnings", [])), "complete": m.get("complete")})
+    return sorted(out, key=lambda r: r["started"] or "", reverse=True)
+
+
+@app.get("/api/spoken/{i}.wav")
+def spoken(i: int) -> Response:
+    if _session is None or i not in _session.spoken:
+        raise HTTPException(404, "no such line")
+    return Response(_session.spoken[i], media_type="audio/wav")
+
+
+@app.post("/api/check")
+def check() -> dict:
+    """The novice's "check my step" button."""
+    if _session is None or _device is None:
+        raise HTTPException(409, "no live session")
+    _session.request_check()
+    return {"ok": True}
+
+
 @app.post("/api/demo")
-async def demo(session: str | None = None) -> dict:
+async def demo(session: str | None = None, speed: float = 1.0) -> dict:
     global _demo
     if _device is not None:
         raise HTTPException(409, "the glasses are streaming; stop them to play a recording")
@@ -174,7 +248,7 @@ async def demo(session: str | None = None) -> dict:
     if not runs:
         raise HTTPException(404, "no recording; run a session first")
     _stop_demo()
-    _demo = asyncio.create_task(_play(runs[-1]))
+    _demo = asyncio.create_task(_play(runs[-1], min(max(speed, 0.25), 8.0)))
     return {"session": runs[-1].name}
 
 
@@ -221,6 +295,8 @@ async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = N
 
 async def _viewer(ws: WebSocket, sockets: set[WebSocket]) -> None:
     await ws.accept()
+    if _last_session is not None:   # a page opened mid-session still learns whether it is live or a replay
+        await ws.send_text(json.dumps(_last_session))
     sockets.add(ws)
     try:
         while True:
