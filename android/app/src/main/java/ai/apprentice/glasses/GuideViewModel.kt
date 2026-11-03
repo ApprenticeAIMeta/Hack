@@ -63,7 +63,8 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
   private val _ui = MutableStateFlow(GuideUi())
   val ui: StateFlow<GuideUi> = _ui
 
-  private val selector = AutoDeviceSelector()
+  // The selector needs Wearables.initialize, which runs only after Android grants Bluetooth
+  private val selector by lazy { AutoDeviceSelector() }
   private val http = OkHttpClient.Builder().readTimeout(0, TimeUnit.MILLISECONDS).build()
   private var socket: WebSocket? = null
   private var session: DeviceSession? = null
