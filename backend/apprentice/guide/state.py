@@ -47,6 +47,7 @@ class Config:
     novelty_window: int = 60
     mistake_conf: float = 0.75   # a warning needs two positive mistake checks in a row, at any confidence
     warn_cooldown_s: float = 12.0
+    mistake_poll_s: float = 15.0 # also look for mistakes this often while a step is under way
 
 
 @dataclass
@@ -97,6 +98,9 @@ class Tracker:
         self.pending: list[tuple[float, str, int, Handle]] = []  # (asked at, kind, step, handle)
         self.last_ask = {"done": -1e9, "mistake": -1e9}
         self.last_warn = -1e9
+        self.asked_for = False     # the novice pressed "check my step": ask now, skipping the gaps
+        self.manual_at = -1.0      # when that check was asked; its answer needs no progress agreement
+        self.look = False          # a mistake check is wanted now (does not pre-arm the warning)
         self.peak = deque()      # (t, p)
         self.low_ticks = 0
         self.novel_ticks = 0
@@ -143,10 +147,11 @@ class Tracker:
                 n = res.completed
                 if n > self.k:
                     self.here = 0
-                    fast = (res.source == "photo" and res.confidence >= self.cfg.done_fast_conf and p is not None
-                            and p >= self.ranges[self.k][1] - self.cfg.fast_gate)
+                    manual = asked == self.manual_at   # hands clear, fresh still: the novice vouched for it
+                    fast = res.source == "photo" and res.confidence >= self.cfg.done_fast_conf and (
+                        manual or (p is not None and p >= self.ranges[self.k][1] - self.cfg.fast_gate))
                     if fast or self.ahead is not None:
-                        target = self.k + 1 if fast else min(n, self.ahead)
+                        target = self.k + 1   # one step at a time: answers jump around, so never skip ahead
                         for j in range(self.k, target):
                             self._emit(arrival, "step_done", j, reason=res.reason)
                         if target >= len(self.ranges):
@@ -194,14 +199,20 @@ class Tracker:
         # done check: when progress says the step should be ending, or on the fallback poll
         near = p is not None and p >= b - cfg.near_end * (b - a)
         due = t - self.last_ask["done"] >= (cfg.min_gap_s if near or not self.instructed else cfg.poll_s)
-        if due and not self._busy("done"):
+        if (due or self.asked_for) and not self._busy("done"):
+            if self.asked_for:
+                self.asked_for = False
+                self.manual_at = t
+                self.look = True             # and look for a mistake on the same still
             self._ask(t, "done", frame)
 
         # mistake check on regression or novelty
-        triggered = self.suspect or self.low_ticks >= cfg.drop_ticks or self.novel_ticks >= cfg.novelty_ticks
+        triggered = (self.look or self.suspect or self.low_ticks >= cfg.drop_ticks or self.novel_ticks >= cfg.novelty_ticks
+                     or (self.instructed and t - self.last_ask["mistake"] >= cfg.mistake_poll_s))
         if (triggered and not self._busy("mistake") and t - self.last_ask["mistake"] >= cfg.min_gap_s
                 and t - self.last_warn >= cfg.warn_cooldown_s):
             self._ask(t, "mistake", frame)
+            self.look = False
             self.low_ticks = self.novel_ticks = 0
 
     def flush(self, t: float) -> None:

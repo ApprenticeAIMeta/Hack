@@ -18,6 +18,7 @@ from apprentice.capture import media
 from apprentice.capture.frame_gate import score_video
 from apprentice.compile import clips, steps, transcribe
 from apprentice.models.meta import MetaClient
+from apprentice.models.speech import speaker
 
 ROOT = Path(__file__).resolve().parents[3]
 QUIET_DB = -30.0
@@ -101,12 +102,15 @@ def build(video: Path, name: str, recompile: bool = False, effort: str = "medium
             f = f"clips/{sid}_{k + 1}.m4a"
             media.cut_audio(video, dest / f, t.start, t.end)
             voice.append({"file": f, "start": t.start, "end": t.end, "text": t.text, "turn_id": t.id})
+        say = f"clips/{sid}_say.wav"   # the instruction, spoken by MMS-TTS; the expert's clips stay as text
+        (dest / say).write_bytes(speaker().say(s["instruction"]))
         ref = clips.reference_frame(scores, s["t_start"], s["t_end"])
         ref_file = None
         if ref:
             media.frame_at(video, ref.t, dest / "keyframes" / f"{sid}.jpg")
             ref_file = {"file": f"keyframes/{sid}.jpg", "t": round(ref.t, 2)}
-        out_steps.append({"id": sid, **s, "voice": voice, "reference_frame": ref_file})
+        out_steps.append({"id": sid, **s, "voice": voice, "say": {"file": say, "text": s["instruction"]},
+                          "reference_frame": ref_file})
 
     procedure = {
         "name": name,

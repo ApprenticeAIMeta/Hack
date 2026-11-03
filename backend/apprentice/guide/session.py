@@ -29,6 +29,7 @@ from apprentice.guide.policy import Check, SparkPolicy
 from apprentice.guide.recorder import Recorder
 from apprentice.guide.state import Tracker, step_ranges
 from apprentice.models.meta import SAM, MetaClient
+from apprentice.models.speech import speaker
 from apprentice.progress.crop import _touches, crop, parse_lines
 from apprentice.progress.embed import Embedder
 from apprentice.progress.model import ProgressModel
@@ -104,6 +105,8 @@ class Session:
         self._photo_got: tuple[threading.Event, list] | None = None
         self._photo_last = -1e9
         self.photos_used = self.photos_failed = 0
+        self.spoken: dict[int, bytes] = {}    # warnings spoken on the fly, served at /api/spoken/<id>.wav
+        threading.Thread(target=speaker().warm, daemon=True).start()
         self._cv = threading.Condition()
         self._stop = False
         self._worker = threading.Thread(target=self._run, daemon=True)
@@ -206,6 +209,10 @@ class Session:
                 self.photos_failed += 1
                 return None
             self.photos_used += 1
+            # The glasses deliver stills landscape with the top of the view on the left; the stream is portrait
+            if img.shape[1] > img.shape[0]:
+                img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+                jpeg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1].tobytes()
             if self.recorder:
                 self.recorder.photo(time.time() - self.t0, jpeg)
             # A still is framed differently from the stream, so the stream's box does not carry over
@@ -300,10 +307,10 @@ class Session:
             ev = {"t": e.t, "kind": e.kind, "step": e.step, **e.data}
             if e.kind == "check":
                 self.cost += e.data.get("cost") or 0.0
-            if e.kind == "instruct" and self.proc["steps"][e.step]["voice"]:
-                ev["play"] = self._clip(self.proc["steps"][e.step]["voice"][0])
-            if e.kind == "warn" and e.data.get("utterance_id") in self.voice:
-                ev["play"] = self._clip(self.voice[e.data["utterance_id"]])
+            if e.kind == "instruct":
+                ev["play"] = self._say_step(e.step)
+            if e.kind == "warn":
+                ev["play"] = self._say_warn(e.step, e.data.get("what") or "", e.data.get("utterance_id"))
             events.append(ev)
         mirror_t = self.model.mirror(p, self.expert) if p is not None else None
         self.publish({"type": "state", "t": round(t, 2), "progress": p, "similarity": sim, "box": box,
@@ -327,3 +334,24 @@ class Session:
 
     def _clip(self, v: dict) -> dict:
         return {"url": f"/procedures/{self.name}/{v['file']}", "text": v["text"]}
+
+    def _say_step(self, k: int) -> dict | None:
+        """The step's instruction in the synthetic voice; the expert's own line is the caption."""
+        st = self.proc["steps"][k]
+        caption = st["voice"][0]["text"] if st["voice"] else st["instruction"]
+        if st.get("say"):
+            return {"url": f"/procedures/{self.name}/{st['say']['file']}", "text": caption}
+        return self._clip(st["voice"][0]) if st["voice"] else None
+
+    def _say_warn(self, k: int, what: str, utterance_id: str | None) -> dict:
+        """Spoken on the spot: what is wrong, then the expert's advice if Spark picked a line."""
+        advice = self.voice[utterance_id]["text"] if utterance_id in self.voice else ""
+        line = f"Stop. {what.rstrip('.')}." + (f" The expert says: {advice}" if advice else "")
+        i = len(self.spoken) + 1
+        self.spoken[i] = speaker().say(line)
+        return {"url": f"/api/spoken/{i}.wav", "text": advice or what}
+
+    def request_check(self) -> None:
+        """The novice asked for a check: take a fresh still and ask Spark on the next frame."""
+        self._photo_last = -1e9
+        self.tracker.asked_for = True
