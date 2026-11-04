@@ -22,6 +22,14 @@ SPARK_AUDIO = "muse-spark-1.2"  # 1.3 audio input is not fully supported yet
 SAM = "sam-3.1"
 TRANSCRIBE = "muse-voice-transcribe-1.0"
 
+# Fallback for Spark when the Meta Model API is unreachable or failing: Meta's open-weights
+# Muse Spark Open, hosted on Baseten (OpenAI-compatible). Measured on the locate check in
+# docs/open-weights.md: less accurate (0.23 vs 0.37 exact) and slower (6.2 s median), so it is
+# only ever a fallback. Too large to run on the laptop itself.
+FALLBACK_URL = "https://inference.baseten.co/v1"
+FALLBACK_MODEL = "meta-models/muse-spark-open-1026"
+FALLBACK_KEY_ENV = "BASETEN_API_KEY"
+
 load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
 
@@ -32,6 +40,7 @@ class Result:
     text: str = ""
     first_token_s: float | None = None
     raw_lines: list[str] = field(default_factory=list)
+    model: str = ""               # which model answered (the fallback is labelled on screen)
 
     @property
     def usage(self) -> dict:
@@ -55,15 +64,49 @@ class MetaClient:
         return [m["id"] for m in r.json().get("data", [])]
 
     def chat(self, messages: list[dict], model: str = SPARK, timeout: float | None = None, **kw) -> Result:
-        """timeout overrides the client's 600 s default for this call (live checks must not hang the guide)."""
+        """timeout overrides the client's 600 s default for this call (live checks must not hang the
+        guide). A Spark call that cannot reach the Meta API, times out, is rate limited or gets a
+        server error is sent once to Muse Spark Open on Baseten instead, when BASETEN_API_KEY is set;
+        APPRENTICE_FORCE_FALLBACK=1 skips the Meta API (to test the fallback)."""
+        to = httpx.Timeout(timeout, connect=5.0) if timeout is not None else httpx.USE_CLIENT_DEFAULT
+        if not os.environ.get("APPRENTICE_FORCE_FALLBACK"):
+            t0 = time.perf_counter()
+            try:
+                r = self._http.post("/chat/completions", json={"model": model, "messages": messages, **kw}, timeout=to)
+            except (httpx.TransportError,) as e:          # connect errors and timeouts
+                if not self._can_fall_back(model):
+                    raise
+                print(f"meta api unreachable ({type(e).__name__}); using {FALLBACK_MODEL}", flush=True)
+            else:
+                if r.status_code < 500 and r.status_code != 429 or not self._can_fall_back(model):
+                    dt = time.perf_counter() - t0
+                    _raise(r)
+                    data = r.json()
+                    return Result(data=data, latency_s=dt, text=data["choices"][0]["message"].get("content") or "", model=model)
+                print(f"meta api HTTP {r.status_code}; using {FALLBACK_MODEL}", flush=True)
+        return self._fallback_chat(messages, timeout, **kw)
+
+    def _can_fall_back(self, model: str) -> bool:
+        return model.startswith("muse-spark") and bool(os.environ.get(FALLBACK_KEY_ENV))
+
+    def _fallback_chat(self, messages: list[dict], timeout: float | None, **kw) -> Result:
+        key = os.environ.get(FALLBACK_KEY_ENV)
+        if not key:
+            raise RuntimeError(f"Meta API unavailable and {FALLBACK_KEY_ENV} is not set for the Spark Open fallback")
+        kw.pop("prompt_cache_key", None)                  # Meta-only
+        if kw.get("reasoning_effort") == "minimal":       # Spark Open's lowest effort is "low"
+            kw["reasoning_effort"] = "low"
+        # At "low" Spark Open reasons for about 2,000 tokens before answering (a mistake check came back
+        # empty at max_tokens 2000, all of it reasoning), so give it room
+        kw["max_tokens"] = max(kw.get("max_tokens") or 0, 8000)
         t0 = time.perf_counter()
-        r = self._http.post("/chat/completions", json={"model": model, "messages": messages, **kw},
-                            timeout=httpx.Timeout(timeout, connect=5.0) if timeout is not None else httpx.USE_CLIENT_DEFAULT)
+        r = httpx.post(f"{FALLBACK_URL}/chat/completions", headers={"Authorization": f"Bearer {key}"},
+                       json={"model": FALLBACK_MODEL, "messages": messages, **kw},
+                       timeout=httpx.Timeout(max(timeout or 120.0, 30.0), connect=5.0))   # slower than the Meta API: a degraded guide beats no answer
         dt = time.perf_counter() - t0
         _raise(r)
         data = r.json()
-        text = data["choices"][0]["message"].get("content") or ""
-        return Result(data=data, latency_s=dt, text=text)
+        return Result(data=data, latency_s=dt, text=data["choices"][0]["message"].get("content") or "", model="muse-spark-open")
 
     def respond_stream(self, input: list[dict], model: str, **kw) -> Result:
         """Responses API with SSE; collects output_text deltas (one per SAM frame)."""

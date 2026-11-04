@@ -31,6 +31,7 @@ class Check:
     unclear: bool = False        # the view did not show enough to judge; counts neither way
     completed: int | None = None # locate: how many steps the workpiece shows as done
     source: str = "stream"       # what Spark looked at: a stream frame or a still taken for this check
+    model: str = ""              # which Spark answered: the Meta API's, or the Spark Open fallback
     prompt_tokens: int = 0
     cached_tokens: int = 0
 
@@ -100,7 +101,9 @@ class SparkPolicy:
                              reasoning_effort=self.effort, prompt_cache_key=f"{name}-{self.proc['name']}-{k}",
                              response_format={"type": "json_schema",
                                               "json_schema": {"name": name, "strict": True, "schema": schema}})
-        return json.loads(r.text), r.latency_s, _cost(r.usage)
+        d = json.loads(r.text)
+        d["_model"] = r.model
+        return d, r.latency_s, _cost(r.usage)
 
     def ref_crop(self, k: int) -> np.ndarray | None:
         key = 1000 + k
@@ -135,7 +138,7 @@ class SparkPolicy:
         d = json.loads(r.text)
         n = max(0, min(len(steps), int(d["completed"])))
         return Check(False, float(d["confidence"]), d["reason"], r.latency_s, _cost(r.usage),
-                     unclear=bool(d["unclear"]), completed=n, **_tokens(r.usage))
+                     unclear=bool(d["unclear"]), completed=n, model=r.model, **_tokens(r.usage))
 
     def done(self, k: int, live: np.ndarray) -> Check:
         s = self.proc["steps"][k]
@@ -146,7 +149,7 @@ class SparkPolicy:
                 "Answer unclear only if the workpiece itself is hidden or out of view.")
         d, lat, cost = self._ask(text, live, k, DONE_SCHEMA, "done_check")
         return Check(d["verdict"] == "done", float(d["confidence"]), d["reason"], lat, cost,
-                     unclear=d["verdict"] == "unclear")
+                     unclear=d["verdict"] == "unclear", model=d["_model"])
 
     def confirm(self, k: int, live: np.ndarray) -> Check:
         """Has step k really finished? Locate answers run one step ahead because a shape still being
@@ -168,7 +171,7 @@ class SparkPolicy:
                                               "json_schema": {"name": "confirm", "strict": True, "schema": DONE_SCHEMA}})
         d = json.loads(r.text)
         return Check(d["verdict"] == "done", float(d["confidence"]), d["reason"], r.latency_s, _cost(r.usage),
-                     unclear=d["verdict"] == "unclear", **_tokens(r.usage))
+                     unclear=d["verdict"] == "unclear", model=r.model, **_tokens(r.usage))
 
     def verify(self, k: int, live: np.ndarray) -> Check:
         """The step looks finished: before moving on, compare the novice's result with the expert's
@@ -192,7 +195,7 @@ class SparkPolicy:
                 "tells them what to do, or -1.")
         d, lat, cost = self._ask(text, live, k, MISTAKE_SCHEMA, "verify_check")
         uid = d["utterance_id"] if d["utterance_id"] in {v["turn_id"] for v in lines} else None
-        return Check(d["mistake"], float(d["confidence"]), d["what"], lat, cost, uid)
+        return Check(d["mistake"], float(d["confidence"]), d["what"], lat, cost, uid, model=d["_model"])
 
     def mistake(self, k: int, live: np.ndarray) -> Check:
         s = self.proc["steps"][k]
@@ -207,4 +210,4 @@ class SparkPolicy:
                 "If there is a mistake, pick the expert line that best tells the novice what to do, or -1.")
         d, lat, cost = self._ask(text, live, k, MISTAKE_SCHEMA, "mistake_check")
         uid = d["utterance_id"] if d["utterance_id"] in {v["turn_id"] for v in lines} else None
-        return Check(d["mistake"], float(d["confidence"]), d["what"], lat, cost, uid)
+        return Check(d["mistake"], float(d["confidence"]), d["what"], lat, cost, uid, model=d["_model"])

@@ -605,7 +605,7 @@ class Session:
         i = len(self.spoken) + 1
         self.spoken[i] = reply
         res = {"question": question, "answer": answer, "url": f"/api/spoken/{i}.wav", "step": k,
-               "latency_s": round(latency, 2)}
+               "latency_s": round(latency, 2), "model": r.model}
         if clip:
             res["clip"] = {k_: clip[k_] for k_ in ("text", "start", "end", "turns", "step")}
         return res
@@ -711,4 +711,4 @@ def confirm_turned(res: Check, turned: Callable[[], Check]) -> Check:
         res.latency_s += again.latency_s
         return res
     return Check(False, again.confidence, f"turned picture disagrees: {res.reason}", res.latency_s + again.latency_s,
-                 res.cost + again.cost, None, source=res.source)
+                 res.cost + again.cost, None, source=res.source, model=res.model)

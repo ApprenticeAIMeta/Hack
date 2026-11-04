@@ -155,7 +155,7 @@ class Tracker:
         for asked, kind, step, (arrival, res) in sorted(due, key=lambda x: x[3][0]):
             self._emit(arrival, "check", step, check=kind, asked=round(asked, 2), yes=res.yes, completed=res.completed,
                        unclear=res.unclear, conf=res.confidence, reason=res.reason, source=res.source,
-                       latency_s=round(res.latency_s, 2), cost=res.cost,
+                       latency_s=round(res.latency_s, 2), cost=res.cost, model=res.model,
                        trigger=self.manual_trigger if asked == self.manual_at else "")
             if step != self.k or self.finished:
                 continue                                  # stale: we moved on
