@@ -29,6 +29,12 @@ Shows the project is priced and shippable. 15 minutes.
 
 ## Tier 2: after the video is safe
 
+### Expert's own voice (built, generating)
+Chatterbox (Resemble AI, MIT) clones the expert from 30 s of the narration, on the laptop's GPU.
+Too slow for live lines (1 to 3 minutes each on an M2), so every instruction and a warning for
+every known mistake are rendered after the compile; a warning Spark describes in other words
+falls back to a generic cloned line, then to MMS-TTS. Voice audio never leaves the machine.
+
 ### Mistakes that teach the next novice
 Every warning the novice confirms with "Got it" is appended to that step's known mistakes with
 the still that triggered it. The procedure gets better with each apprentice, which is the
@@ -87,7 +93,7 @@ trade school or a company keeps its own library. Business model more than a feat
 in the write-up, no code.
 
 ## Rejected
-- Voice cloning the expert: needs a non-Meta model, and the hackathon runs Meta models only.
+- Hosted voice cloning (ElevenLabs and similar): allowed by the rules, which require Meta models but do not bar others, but the expert's voice should not leave the laptop. Open-source cloning (Chatterbox, MIT) runs locally instead; see "Expert's own voice" below.
 - AR overlays on the glasses: there is no display.
 - Accounts, cloud sync, multi-user: no rubric points, lots of surface area.
 - Shortening the catch delay in the edit: any sped-up section is labeled on screen instead.

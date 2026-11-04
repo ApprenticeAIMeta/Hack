@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -335,17 +336,36 @@ class Session:
     def _clip(self, v: dict) -> dict:
         return {"url": f"/procedures/{self.name}/{v['file']}", "text": v["text"]}
 
+    def _cloned(self, name: str) -> str | None:
+        """A line pre-rendered in the expert's own cloned voice (procedures/<name>/voice/<name>.wav),
+        made ahead of time because cloning takes minutes per line on the laptop."""
+        f = self.dir / "voice" / f"{name}.wav"
+        return f"/procedures/{self.name}/voice/{name}.wav" if f.exists() else None
+
     def _say_step(self, k: int) -> dict | None:
-        """The step's instruction in the synthetic voice; the expert's own line is the caption."""
+        """The step's instruction, in the expert's cloned voice when available, else the synthetic one;
+        the expert's own recorded line is the caption."""
         st = self.proc["steps"][k]
         caption = st["voice"][0]["text"] if st["voice"] else st["instruction"]
-        if st.get("say"):
-            return {"url": f"/procedures/{self.name}/{st['say']['file']}", "text": caption}
+        url = self._cloned(f"{st['id']}_say") or (f"/procedures/{self.name}/{st['say']['file']}" if st.get("say") else None)
+        if url:
+            return {"url": url, "text": caption}
         return self._clip(st["voice"][0]) if st["voice"] else None
 
     def _say_warn(self, k: int, what: str, utterance_id: str | None) -> dict:
-        """Spoken on the spot: what is wrong, then the expert's advice if Spark picked a line."""
+        """A warning: the pre-rendered cloned line for the matching known mistake when Spark's
+        description matches one, else a generic cloned line, else synthesized on the spot."""
+        st = self.proc["steps"][k]
         advice = self.voice[utterance_id]["text"] if utterance_id in self.voice else ""
+        words = set(re.findall(r"[a-z]+", what.lower()))
+        best, best_n = None, 0
+        for j, m in enumerate(st["known_mistakes"]):
+            n = len(words & set(re.findall(r"[a-z]+", m.lower())) - {"the", "a", "of", "to", "not", "and"})
+            if n > best_n:
+                best, best_n = j, n
+        url = (self._cloned(f"{st['id']}_warn{best + 1}") if best is not None and best_n >= 2 else None) or self._cloned("generic_warn")
+        if url:
+            return {"url": url, "text": advice or what}
         line = f"Stop. {what.rstrip('.')}." + (f" The expert says: {advice}" if advice else "")
         i = len(self.spoken) + 1
         self.spoken[i] = speaker().say(line)
