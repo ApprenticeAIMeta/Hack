@@ -234,7 +234,7 @@ function Dashboard() {
         {/* header */}
         <header className="flex flex-wrap items-center justify-between gap-3.5">
           <div className="flex min-w-0 flex-wrap items-center gap-3.5">
-            <span className="grid h-9 w-9 place-items-center rounded-[10px] border border-[#7DD3F5]/35 bg-[#14262D]"><span className="h-2.5 w-2.5 rounded-full bg-[#7DD3F5]" /></span>
+            <svg viewBox="0 0 104 104" className="h-9 w-9 shrink-0" aria-hidden><rect width="104" height="104" rx="24" fill="#14262D" stroke="#7DD3F5" strokeOpacity=".35" strokeWidth="3" /><circle cx="52" cy="52" r="31" fill="none" stroke="#7DD3F5" strokeWidth="6" /><path d="M40 65 52 38 64 65M45 56h14" fill="none" stroke="#7DD3F5" strokeWidth="7.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             <span className="text-xl font-semibold tracking-[-0.02em]">ApprenticeAI</span>
             {proc?.task && <span className="text-[15px] text-[#A0A4AC]">{proc.task}</span>}
           </div>

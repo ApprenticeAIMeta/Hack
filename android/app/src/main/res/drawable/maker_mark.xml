@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The maker's mark at header size: ring and A, no dotted ring (it blurs below ~48 dp) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="104dp" android:height="104dp" android:viewportWidth="104" android:viewportHeight="104">
+    <path android:pathData="M52,21a31,31 0 1,1 0,62a31,31 0 1,1 0,-62"
+        android:strokeColor="#7DD3F5" android:strokeWidth="6" android:fillColor="#00000000"/>
+    <path android:pathData="M40,65L52,38L64,65M45,56L59,56"
+        android:strokeColor="#7DD3F5" android:strokeWidth="7.5" android:strokeLineCap="round"
+        android:strokeLineJoin="round" android:fillColor="#00000000"/>
+</vector>

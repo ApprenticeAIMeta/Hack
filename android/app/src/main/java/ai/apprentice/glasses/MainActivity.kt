@@ -23,6 +23,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -58,6 +59,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -158,9 +160,9 @@ private fun SetupScreen(vm: GuideViewModel, ui: GuideUi, onRegister: () -> Unit,
   ) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)) {
       Box(
-          Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(CyanSoft).border(1.dp, Cyan.copy(alpha = .5f), RoundedCornerShape(9.dp)),
+          Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(CyanSoft).border(1.dp, Cyan.copy(alpha = .5f), RoundedCornerShape(9.dp)),
           contentAlignment = Alignment.Center,
-      ) { Box(Modifier.size(9.dp).clip(CircleShape).background(Cyan)) }
+      ) { Image(painterResource(R.drawable.maker_mark), contentDescription = null, modifier = Modifier.size(30.dp)) }
       Spacer(Modifier.width(12.dp))
       Text("ApprenticeAI", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
     }
