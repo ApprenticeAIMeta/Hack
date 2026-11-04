@@ -619,5 +619,7 @@
   "Perfect."
  ],
  "closer": "I can't quite see it. Take your hands away and lean in, so I can see the connector.",
- "ask_clip_only": true
+ "ask_clip_only": true,
+ "expert_voice_only": true,
+ "not_covered": "I didn't cover that when I recorded this. The answer's on your screen."
 }

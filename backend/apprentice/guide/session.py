@@ -658,7 +658,9 @@ class Session:
         # slips ("So I tore off the page from!") that read badly on the phone and in the video
         caption = self._local_steps.get(st["id"], st)["instruction"] if self.local else say_line(st)
         url = (self._localized(f"{st['id']}_say") or self._cloned(f"{st['id']}_say")
-               or (f"/procedures/{self.name}/{st['say']['file']}" if st.get("say") else None))
+               or (f"/procedures/{self.name}/{st['say']['file']}" if st.get("say") and not self._expert_only() else None))
+        if url is None and self._expert_only():
+            return {"url": None, "text": caption}
         if url:
             return {"url": url, "text": caption}
         return self._clip(st["voice"][0]) if st["voice"] else None
@@ -681,10 +683,18 @@ class Session:
         if self.local and best is not None and best_n >= 2 and st["id"] in self._local_steps:
             text = self._local_steps[st["id"]]["known_mistakes"][best]
         url = self._localized(key) or self._cloned(key) or (self._localized("generic_warn") if self.local else None)
-        if url:
+        if url is None and self._expert_only():
+            url = self._cloned("generic_warn")      # never the synthetic voice: the expert's generic stop
+        if url or self._expert_only():
             return {"url": url, "text": text}
         i = self._spoken_ids.get(key) or self._spoken_ids.get("generic_warn")
         return {"url": f"/api/spoken/{i}.wav" if i else None, "text": text}
+
+    def _expert_only(self) -> bool:
+        """procedure.json "expert_voice_only": the novice only ever hears the expert (recorded or cloned);
+        a line with no such audio is shown as text instead of spoken in another voice. English only,
+        as the clone is English."""
+        return bool(self.proc.get("expert_voice_only")) and self.lang == "en"
 
     def _say_varied(self, name: str, lines) -> dict:
         """One of several phrasings (voice/<name>_<n>.wav), rotating so the guide never says the same
@@ -715,6 +725,8 @@ class Session:
         url = self._cloned(name)
         if url:
             return {"url": url, "text": text}
+        if self._expert_only():
+            return {"url": None, "text": text}      # no other voice: the line shows as text
         try:
             i = len(self.spoken) + 1
             self.spoken[i] = speaker().say(text)
@@ -821,7 +833,11 @@ class Session:
         answer = (out or {}).get("answer", "").strip()
         reply = speaker(self.lang).say(answer)
         clip = self._expert_clip((out or {}).get("clip_from", -1), (out or {}).get("clip_to", -1))
-        if clip and self.proc.get("ask_clip_only") and self.lang == "en":
+        if not clip and self._expert_only():
+            # nothing the expert recorded answers it: say so in the expert's voice, the answer goes on screen
+            f = self.dir / "voice" / "not_covered.wav"
+            reply = f.read_bytes() if f.exists() else b""
+        if clip and (self.proc.get("ask_clip_only") or self._expert_only()) and self.lang == "en":
             # the expert's recorded words are the answer; a synthesized sentence after them is a second,
             # different voice (novice7). The written answer still goes to the screens.
             try:
