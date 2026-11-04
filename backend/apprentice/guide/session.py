@@ -230,6 +230,8 @@ class Session:
                 raise RuntimeError("session closed")
             view = frame if still is None else still
             res = self.policy.locate(view) if kind == "done" else self.policy.mistake(step, view)
+            if kind == "mistake" and res.yes:
+                res = confirm_turned(res, lambda: self.policy.mistake(step, cv2.rotate(view, cv2.ROTATE_90_CLOCKWISE)))
             res.source = "stream" if still is None else "photo"
             return res
         fut = self.pool.submit(run)
@@ -691,3 +693,22 @@ def _join_wavs(expert_pcm: np.ndarray, answer_wav: bytes, gap_s: float = 0.45) -
         f.setframerate(rate)
         f.writeframes(pcm.tobytes())
     return buf.getvalue()
+
+
+
+def confirm_turned(res: Check, turned: Callable[[], Check]) -> Check:
+    """A positive mistake answer is kept only if Spark gives it again on the same picture turned a
+    quarter turn. A wrong fold is wrong at any angle; an answer that disappears when the picture is
+    turned was about orientation. catch5 at 0:51: a correct lengthwise strip lying sideways was
+    called "folded crosswise" 3 of 3 times as captured and 0 of 3 times turned upright. The second
+    call happens only on positive answers, which are rare."""
+    try:
+        again = turned()
+    except Exception:
+        return res                      # no second opinion: keep the first answer
+    if again.yes:
+        res.cost += again.cost
+        res.latency_s += again.latency_s
+        return res
+    return Check(False, again.confidence, f"turned picture disagrees: {res.reason}", res.latency_s + again.latency_s,
+                 res.cost + again.cost, None, source=res.source)

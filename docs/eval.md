@@ -76,3 +76,20 @@ fold is under way; "wrong" would mean the still shows an earlier step.
 - catch1's planted mistakes (corners short, points inside, one wing) were advanced past: the
   step was attempted but done wrong, which is the mistake-catching gap above, not a tracking error.
 - The other 5 advances (4 judged on a stream frame, plus the throw, which ends when the plane leaves the view) have no still to check.
+
+## Mistake checks: two things tried on Nov 4
+**Silhouette measures (SAM masks), not adopted.** On the step-end stills of the six runs, the
+outline's mirror symmetry and its overlap with the expert's outline did not separate the planted
+mistakes from correct work: on step 3, the planted "corners short" scored 0.775 symmetry, inside
+the 0.27 to 0.92 range of correct folds. Two causes: SAM leaves hands out of the paper mask, so a
+hand on the sheet bites holes in the outline (the expert's own step 3 reference scores 0.48), and
+after the fold in half the correct top-down outline is a triangle, so symmetry is the wrong test.
+It needs hands-off stills and hands-off reference photos to be worth retrying.
+
+**A positive mistake answer must survive a quarter turn, adopted.** When Spark says "mistake",
+the same picture is asked again turned 90 degrees, and the warning is kept only if Spark says so
+again (`session.confirm_turned`; one extra call, on positive answers only). The two "folded
+crosswise" answers on correct lengthwise strips lying sideways (catch4 at 1:05, catch5 at 0:51)
+are dropped; on the six photos that drew positive mistake answers live, positives fall from 2 to
+0. It cannot add catches: the planted mistakes (catch1 steps 3 and 5, catch3 step 6) still get no
+positive answer to confirm.

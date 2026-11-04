@@ -124,3 +124,15 @@ def test_hands_off_on_the_throw_step_is_not_a_throw():
     tr.asked_for, tr.trigger = True, "tap"
     tr.tick(2.0, None, None, FRAME)
     assert tr.finished
+
+
+
+def test_a_mistake_answer_that_disappears_when_the_picture_is_turned_is_dropped():
+    from apprentice.guide.session import confirm_turned
+    yes = Check(True, 0.95, "folded crosswise", 3.0, 0.01)
+    kept = confirm_turned(yes, lambda: Check(True, 0.9, "folded crosswise", 3.0, 0.01))
+    assert kept.yes and abs(kept.cost - 0.02) < 1e-9
+    dropped = confirm_turned(Check(True, 0.95, "folded crosswise", 3.0, 0.01), lambda: Check(False, 0.9, "", 3.0, 0.01))
+    assert not dropped.yes and "turned picture disagrees" in dropped.reason
+    def boom(): raise TimeoutError
+    assert confirm_turned(Check(True, 0.95, "x", 3.0, 0.01), boom).yes
