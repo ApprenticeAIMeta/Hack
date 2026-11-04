@@ -433,9 +433,9 @@ class Session:
         voice, else the synthetic one. The caption is the expert's recorded line (translated when
         localized)."""
         st = self.proc["steps"][k]
-        caption = st["voice"][0]["text"] if st["voice"] else st["instruction"]
-        if self.local:
-            caption = self._local_steps[st["id"]]["instruction"]
+        # The caption is the compiled instruction: the raw transcript line can carry transcription
+        # slips ("So I tore off the page from!") that read badly on the phone and in the video
+        caption = self._local_steps[st["id"]]["instruction"] if self.local else st["instruction"]
         url = (self._localized(f"{st['id']}_say") or self._cloned(f"{st['id']}_say")
                or (f"/procedures/{self.name}/{st['say']['file']}" if st.get("say") else None))
         if url:
