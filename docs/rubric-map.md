@@ -5,14 +5,15 @@ Weights are from the participant guide.
 | Criterion | Evidence |
 |---|---|
 | Impact (30%) | Expert knowledge leaves with retiring trades workers. One narrated recording of one expert becomes a guide anyone can follow, in their own language, with no written manual. |
-| Meta AI tooling (25%) | Five Meta models with separate jobs, below. Beyond prompting: SAM 3.1 is used as a sensor (is a hand on the work right now?) that decides when to judge; Muse Spark answers spoken questions as the expert, grounded in the expert's transcript and a fresh photo from the glasses; the progress model is trained on expert footage degraded to match the glasses' Bluetooth stream. Open weights: MMS-TTS and DINOv2 run locally; a compile on Muse Spark Open is measured in [open-weights.md](open-weights.md). |
+| Meta AI tooling (25%) | Ray-Ban Meta glasses through the Device Access Toolkit, and five Meta models with separate jobs, below. Beyond prompting: SAM 3.1 is used as a sensor (is a hand on the work right now?) that decides when to judge; Muse Spark answers spoken questions as the expert, grounded in the expert's transcript and a fresh photo from the glasses; the progress model is trained on expert footage degraded to match the glasses' Bluetooth stream. Open weights: MMS-TTS and DINOv2 run locally; a compile on Muse Spark Open is measured in [open-weights.md](open-weights.md). |
 | Demo (25%) | `/?demo=1` replays `demo/catch5` from a fresh clone with no key or glasses. Each model's latency and every Spark answer with its reason are on screen; runs are labeled live or replay. |
-| Technical depth (20%) | Stream simulation for training ([progress-notes.md](progress-notes.md)); a step tracker whose rules each trace to a measured failure in a live run ([eval.md](eval.md), git history); per-call timeouts, a spend cap, session recording and replay. |
+| Technical depth (20%) | Stream simulation for training ([progress-notes.md](progress-notes.md)); a step tracker whose rules each trace to a measured failure in a live run ([eval.md](eval.md), git history); per-call timeouts on every live model call (SAM 6 s, Spark checks 15 s, answers 20 s), a spend cap, session recording and replay. |
 
 ## What each model does
 
 | Model | Job | Code |
 |---|---|---|
+| Ray-Ban Meta + Device Access Toolkit | 720p 15 fps HEVC stream to the server; full-resolution photo on request for a check | `android/app/src/main/java/ai/apprentice/glasses/GuideViewModel.kt` |
 | Muse Spark 1.3 | Compiles video and transcript into steps; judges which step the novice has reached; answers spoken questions as the expert; translates the guide | `compile/steps.py`, `guide/policy.py`, `guide/session.py` (ask), `compile/localize.py` |
 | SAM 3.1 | Tracks the workpiece in each frame and photo; detects hands on the work (hands-off signal); picks hands-off reference photos | `guide/session.py`, `progress/train.py` |
 | Muse Voice Transcribe | Times the expert's speech for the compile; transcribes the novice's questions | `compile/transcribe.py`, `server.py` (`/api/ask`) |

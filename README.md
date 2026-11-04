@@ -8,10 +8,11 @@ novice can ask the expert a question out loud at any point. It works in the novi
 
 Built for the Meta Global AI Developer Hackathon (Oct 27 to Nov 4, 2026).
 
-**Status, honestly:** live step-by-step guidance, hands-off advancing, spoken questions and the
-Hindi guide work on a real run (`demo/catch5`: all seven steps of a paper airplane, including
-throwing it). Catching a mistake automatically does not work reliably yet: planted mistakes were
-missed in every run so far ([docs/eval.md](docs/eval.md)).
+**Status, honestly:** live step-by-step guidance and hands-off advancing work on a real run
+(`demo/catch5`: all seven steps of a paper airplane, including throwing it). Spoken questions and
+the Hindi guide work live and are shown in the demo video; catch5 itself has neither, because it
+was recorded before questions were saved with a session. Catching a mistake automatically does
+not work reliably yet: planted mistakes were missed in every run so far ([docs/eval.md](docs/eval.md)).
 
 ## See it in 2 minutes, no glasses, no API key
 
@@ -32,6 +33,7 @@ total. A new procedure from an expert recording is one command: `backend/tools/n
 
 | Model | Job |
 |---|---|
+| Ray-Ban Meta glasses + Wearables Device Access Toolkit | The Android app streams the glasses' camera (720p, 15 fps HEVC) to the server and takes a full-resolution photo when a step is checked |
 | Muse Voice Transcribe | Times the expert's narration, so steps, captions and known mistakes come from their words; transcribes the novice's spoken questions (about 1.3 s) |
 | Muse Spark 1.3 | Compiles the recording and transcript into steps; live, judges which step the novice has reached from the stream or a photo; answers the novice's questions as the expert, from the recording and the current photo; translates the guide |
 | SAM 3.1 | Tracks the workpiece in every stream frame, finds it in each photo, detects whether a hand is on it (the hands-off signal), and picks the expert's reference photos with the hands off |
