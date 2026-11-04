@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # From an expert recording on the phone to a live guide, in one command.
 #
-#   tools/new_procedure.sh <name> <phone video file name> [second recording] [voice sample on the phone]
+#   [KEYWORDS=a,b,c] tools/new_procedure.sh <name> <phone video file name> [second recording] [voice sample on the phone]
 #
 # e.g. tools/new_procedure.sh thermostat 20261104_093012_ab12cd34.mp4 20261104_094501_ef56ab78.mp4
 #
@@ -26,8 +26,22 @@ pull "$first" expert1
 [ -n "$second" ] && pull "$second" expert2
 
 stamp "compiling (Voice Transcribe, Muse Spark)"
-PYTHONPATH=. .venv/bin/python -m apprentice.compile.build "$ROOT/footage/${name}_expert1.mp4" --name "$name" 2>&1 \
+# KEYWORDS biases Voice Transcribe toward the trade's words, e.g.
+#   KEYWORDS="thermostat,transformer,24 volt,R wire,C wire,common,contactor" tools/new_procedure.sh ...
+PYTHONPATH=. .venv/bin/python -m apprentice.compile.build "$ROOT/footage/${name}_expert1.mp4" --name "$name" \
+  ${KEYWORDS:+--keywords "$KEYWORDS"} 2>&1 \
   | grep -vE "Warning|warn|Loading weights|Redirects"
+
+# "workpiece" is SAM's text prompt for tracking, in training and live: it must be a short noun
+# ("thermostat"). WORKPIECE=... overrides what Spark wrote.
+WP="${WORKPIECE:-}" P="$ROOT/procedures/$name/procedure.json" .venv/bin/python - <<'PY'
+import json, os
+p = os.environ["P"]; d = json.load(open(p))
+if os.environ["WP"]:
+    d["workpiece"] = os.environ["WP"]; json.dump(d, open(p, "w"), indent=1)
+w = d["workpiece"]
+print(f"  workpiece (SAM prompt): {w!r}" + ("  <- long; rerun with WORKPIECE=<short noun>" if len(w.split()) > 3 else ""))
+PY
 
 stamp "training the progress model and picking reference photos"
 # The recordings were just pulled, so anything cached under these labels is from an older take
