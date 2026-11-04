@@ -190,7 +190,8 @@ class SparkPolicy:
                 "other clear difference from the expert's result that would ruin the next steps: edges that do not meet "
                 "the line they should, one side done and not the other, a fold made the wrong way, uneven halves. "
                 "Small imprecision is fine. If hands hide the part you need to see, say no mistake with low confidence.\n"
-                f"Expert's recorded lines (id: text):\n{said}\n"
+                + (f"Look closely at this, it is the mistake that matters most here: {s['inspect']}\n" if s.get("inspect") else "")
+                + f"Expert's recorded lines (id: text):\n{said}\n"
                 "If there is a mistake, describe it in plain words for the novice, and pick the expert line that best "
                 "tells them what to do, or -1.")
         d, lat, cost = self._ask(text, live, k, MISTAKE_SCHEMA, "verify_check")
@@ -206,7 +207,8 @@ class SparkPolicy:
                 "Compare the novice's workpiece with the expert's. Is the novice making a mistake that will matter, "
                 "including one not in the known list? Unfinished work is not a mistake, and neither is doing this "
                 "step in a different order or with a different grip. Blur and compression are not damage.\n"
-                f"Expert's recorded lines (id: text):\n{said}\n"
+                + (f"Look closely at this, it is the mistake that matters most here: {s['inspect']}\n" if s.get("inspect") else "")
+                + f"Expert's recorded lines (id: text):\n{said}\n"
                 "If there is a mistake, pick the expert line that best tells the novice what to do, or -1.")
         d, lat, cost = self._ask(text, live, k, MISTAKE_SCHEMA, "mistake_check")
         uid = d["utterance_id"] if d["utterance_id"] in {v["turn_id"] for v in lines} else None

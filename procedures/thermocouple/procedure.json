@@ -330,7 +330,8 @@
     "file": "keyframes/step_03.jpg",
     "t": 146.0,
     "crop": "keyframes/step_03_crop.jpg"
-   }
+   },
+   "inspect": "Find the two thermocouple wire ends where they go into the connector ports. The copper wire looks gold or orange; the constantan wire looks silver or gray. Correct is gold copper in the LEFT port and silver constantan in the RIGHT port. If you can see the silver wire in the left port or the gold wire in the right port, the wires are reversed: that is the mistake, report it with high confidence. If the wire colors at the ports cannot be seen, it is not a mistake."
   },
   {
    "id": "step_04",
@@ -366,7 +367,8 @@
     "file": "keyframes/step_04.jpg",
     "t": 151.0,
     "crop": "keyframes/step_04_crop.jpg"
-   }
+   },
+   "inspect": "Find the two thermocouple wire ends where they go into the connector ports. The copper wire looks gold or orange; the constantan wire looks silver or gray. Correct is gold copper in the LEFT port and silver constantan in the RIGHT port. If you can see the silver wire in the left port or the gold wire in the right port, the wires are reversed: that is the mistake, report it with high confidence. If the wire colors at the ports cannot be seen, it is not a mistake."
   }
  ],
  "transcript": [
