@@ -178,26 +178,20 @@
    "show": "Then look straight at that empty channel, with your hands out of view."
   },
   {
-   "id": "step_03",
-   "done_check": "Both wire ends are pushed into the 16th channel connector and the wires stay in place on their own.",
-   "expert_warnings": [
-    "connecting the constantan silver wire to the left port and the copper golden wire to the right port"
-   ],
-   "instruction": "Take the small screwdriver and press the orange button on the connector down. While you hold it, push the gold copper wire into the left port, then the silver constantan wire into the right port. Release the button to clamp them in.",
+   "done_check": "a small flat screwdriver lies next to the thermocouple connector",
+   "expert_warnings": [],
+   "instruction": "Pick up the small flat screwdriver.",
    "known_mistakes": [
-    "connecting the constantan silver wire to the left port and the copper golden wire to the right port",
-    "leaving wire ends only partly seated in the ports"
+    "using a screwdriver too big for the orange button"
    ],
    "objects": [
-    "copper golden wire",
-    "constantan silver wire",
-    "thermocouple module"
+    "screwdriver"
    ],
-   "spoken": "Take the small screwdriver and press the orange button on the connector down. While you hold it, push the gold copper wire into the left port. Then the same on the right with the silver constantan wire. Release the button to clamp them in.",
-   "t_end": 153.2,
+   "spoken": "Pick up the small flat screwdriver.",
+   "t_end": 120.8,
    "t_start": 68.0,
-   "title": "Connect Wires Correctly",
-   "why": "Swapped wires give really bad values when read off the program.",
+   "title": "Get The Screwdriver",
+   "why": "",
    "voice": [
     {
      "file": "clips/step_03_1.m4a",
@@ -268,7 +262,33 @@
      "end": 120.8,
      "text": "to the right now it's in you just have to pull on this wire a little bit to make sure it's secure in place and reading the right thing",
      "turn_id": 24
-    },
+    }
+   ],
+   "reference_frame": null,
+   "show": "Then set it down right next to the connector and take your hand away, so I can see it.",
+   "id": "step_03"
+  },
+  {
+   "done_check": "the gold copper wire is seated in the left port of the last channel",
+   "expert_warnings": [
+    "pushing the gold copper wire into the right port"
+   ],
+   "instruction": "Press the orange button on the left port of channel sixteen, push the gold copper wire in, and release.",
+   "known_mistakes": [
+    "pushing the gold copper wire into the right port",
+    "leaving the copper wire only partly seated"
+   ],
+   "objects": [
+    "copper wire",
+    "connector",
+    "screwdriver"
+   ],
+   "spoken": "With the screwdriver, press down the orange button on the left port of channel sixteen, push the gold copper wire all the way in, and release.",
+   "t_end": 148.0,
+   "t_start": 120.8,
+   "title": "Insert The Copper Wire",
+   "why": "Swapped wires give really bad values when read off the program.",
+   "voice": [
     {
      "file": "clips/step_03_11.m4a",
      "start": 120.8,
@@ -317,7 +337,40 @@
      "end": 147.55,
      "text": "so copper is and.",
      "turn_id": 31
-    },
+    }
+   ],
+   "reference_frame": {
+    "file": "keyframes/step_03.jpg",
+    "t": 146.0,
+    "crop": "keyframes/step_03_crop.jpg",
+    "source": "builder photo 20261104_141134_12ffe325.jpg, re-shot following the expert's procedure (expert's frame kept in keyframes/expert/)"
+   },
+   "inspect": "Find the two thermocouple wire ends where they go into the connector ports. The copper wire looks gold or orange; the constantan wire looks silver or gray. Correct is gold copper in the LEFT port and silver constantan in the RIGHT port. If you can see the silver wire in the left port or the gold wire in the right port, the wires are reversed: that is the mistake, report it with high confidence. If the wire colors at the ports cannot be seen, it is not a mistake.",
+   "show": "Then take your hands away and look at the connector, so I can check it.",
+   "verifiable": false,
+   "id": "step_04"
+  },
+  {
+   "done_check": "the silver constantan wire is seated in the right port, next to the gold copper wire on the left",
+   "expert_warnings": [
+    "connecting the constantan silver wire to the left port and the copper golden wire to the right port"
+   ],
+   "instruction": "Press the orange button on the right port, push the silver constantan wire in, and release.",
+   "known_mistakes": [
+    "connecting the constantan silver wire to the left port and the copper golden wire to the right port",
+    "leaving the constantan wire only partly seated"
+   ],
+   "objects": [
+    "constantan wire",
+    "connector",
+    "screwdriver"
+   ],
+   "spoken": "Now the same on the right port: press the button, push the silver constantan wire in, and release.",
+   "t_end": 153.2,
+   "t_start": 148.0,
+   "title": "Insert The Constantan Wire",
+   "why": "Swapped wires give really bad values when read off the program.",
+   "voice": [
     {
      "file": "clips/step_03_18.m4a",
      "start": 150.05,
@@ -326,10 +379,6 @@
      "turn_id": 32
     }
    ],
-   "say": {
-    "file": "clips/step_03_say.wav",
-    "text": "Push copper golden wire in the left port and constantan in the right."
-   },
    "reference_frame": {
     "file": "keyframes/step_03.jpg",
     "t": 146.0,
@@ -337,12 +386,13 @@
     "source": "builder photo 20261104_141134_12ffe325.jpg, re-shot following the expert's procedure (expert's frame kept in keyframes/expert/)"
    },
    "inspect": "Find the two thermocouple wire ends where they go into the connector ports. The copper wire looks gold or orange; the constantan wire looks silver or gray. Correct is gold copper in the LEFT port and silver constantan in the RIGHT port. If you can see the silver wire in the left port or the gold wire in the right port, the wires are reversed: that is the mistake, report it with high confidence. If the wire colors at the ports cannot be seen, it is not a mistake.",
-   "show": "When both are in, take your hands away and look at the connector, so I can check it.",
+   "show": "Then take your hands away and look at the connector, so I can check it.",
    "tip": "Before you lock it in, check your wires: gold copper on the left, silver constantan on the right.",
-   "verifiable": false
+   "verifiable": false,
+   "id": "step_05"
   },
   {
-   "id": "step_04",
+   "id": "step_06",
    "done_check": "Both wires remain seated in ports after gentle pull.",
    "expert_warnings": [],
    "instruction": "Pull gently on both wires to confirm each wire is secure in place.",
@@ -367,10 +417,6 @@
      "turn_id": 33
     }
    ],
-   "say": {
-    "file": "clips/step_04_say.wav",
-    "text": "Pull both wires lightly to confirm each wire is secure."
-   },
    "reference_frame": {
     "file": "keyframes/step_04.jpg",
     "t": 151.0,

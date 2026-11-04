@@ -50,6 +50,7 @@ PHOTO_TIMEOUT_S = 6.0   # the phone holds a still up to 2.5 s for the voice line
 STILL_FRESH_S = 10.0    # a check asked soon after a still may judge the same still
 TARGET_REFIND_S = 15.0      # Spark re-finds the target this often, so a SAM track cannot drift for long
 TARGET_MIN_FRAC = 0.06      # a target narrower than this fraction of the photo is too far away to judge
+LIVE_CONFIRM_S = 20.0       # wait at most this long for the turned-picture confirmation
 REMIND_QUIET_S = 6.0        # no reminder within this long of a hand on the work: they are busy, not stuck
 REMIND_S = float(os.environ.get("REMIND_S", "20"))   # repeat the step after this much silence; 0 turns it off
 ASK_TIMEOUT_S = 20.0    # a spoken answer slower than this fails instead of leaving the phone waiting
@@ -113,6 +114,7 @@ class Session:
         self.policy = SparkPolicy(self.dir, self.client)
         self.embedder = embedder
         self.pool = ThreadPoolExecutor(4)
+        self._confirm_pool = ThreadPoolExecutor(2)      # turned-picture confirmations, alongside each mistake check
         # A procedure can lower the confidence a step check needs (procedure.json "done_conf"):
         # a crowded scene like a wiring rack keeps Spark's answers right but less sure
         cfg = Config(done_conf=float(self.proc.get("done_conf", Config.done_conf)),
@@ -259,11 +261,17 @@ class Session:
                 res.source = "stream" if still is None else "photo"
                 self._publish_seen(t, step, res, *self._seen_imgs)
                 return res
+            turned = None
+            if kind == "mistake" and self.tracker.cfg.signal:
+                # the turned-picture confirmation runs alongside the check, not after it: a false alarm
+                # confirmed in sequence cost 13.5 s on a signal (novice10, step 2)
+                turned = self._confirm_pool.submit(self.policy.mistake, step, cv2.rotate(view, cv2.ROTATE_90_CLOCKWISE))
             res = self.policy.locate(view) if kind == "done" else self.policy.mistake(step, view)
+            if kind == "mistake" and res.yes:
+                res = confirm_turned(res, (lambda: turned.result(timeout=LIVE_CONFIRM_S)) if turned is not None
+                                     else (lambda: self.policy.mistake(step, cv2.rotate(view, cv2.ROTATE_90_CLOCKWISE))))
             if kind == "mistake" and asked_for and self.tracker.cfg.signal:
                 self._publish_seen(t, step, res, view, None, None)
-            if kind == "mistake" and res.yes:
-                res = confirm_turned(res, lambda: self.policy.mistake(step, cv2.rotate(view, cv2.ROTATE_90_CLOCKWISE)))
             res.source = "stream" if still is None else "photo"
             return res
         fut = self.pool.submit(run)
