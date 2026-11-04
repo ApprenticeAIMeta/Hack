@@ -11,11 +11,14 @@ Every tick publishes a state snapshot; guidance events carry the expert clip to 
 from __future__ import annotations
 
 import base64
+import io
 import json
 import os
 import re
+import subprocess
 import threading
 import time
+import wave
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import Callable
@@ -532,39 +535,99 @@ class Session:
             self.spoken[i] = sp.say(text)
             self._spoken_ids[key] = i
 
+    ASK_SCHEMA = {
+        "type": "object", "additionalProperties": False,
+        "properties": {
+            "clip_from": {"type": "integer", "description": "first turn id of the expert's own words that answer the question, or -1"},
+            "clip_to": {"type": "integer", "description": "last turn id of that passage (same as clip_from for one turn), or -1"},
+            "answer": {"type": "string", "description": "one or two short spoken sentences"},
+        },
+        "required": ["clip_from", "clip_to", "answer"],
+    }
+
     def ask(self, question: str) -> dict:
         """The novice asked the expert something. Muse Spark answers from the expert's recording
-        (steps, their words) and what the glasses see now, in the novice's language, in two
-        sentences at most; the answer is spoken with MMS-TTS. Returns {question, answer, url, step}."""
+        (steps, their words with turn ids) and what the glasses see now, in the novice's language.
+        When a moment of the recording answers the question, Spark names its turns and the reply
+        plays that moment in the expert's own voice first, then a short spoken answer about the
+        work in front of them (MMS-TTS). Without such a moment, or if the clip cannot be built, it
+        is the spoken answer alone. Returns {question, answer, url, step, clip?}."""
         k = self.tracker.k
         st = self.proc["steps"][k]
-        said = "\n".join(f"step {i + 1}: " + " ".join(v["text"] for v in s_["voice"]) for i, s_ in enumerate(self.proc["steps"]) if s_["voice"])
+        turns = [(v["turn_id"], i, v) for i, s_ in enumerate(self.proc["steps"]) for v in s_["voice"]]
+        said = "\n".join(f"[{tid}] step {i + 1}, {v['start']:.0f}s: {v['text']}" for tid, i, v in turns)
         steps = "\n".join(f"{i + 1}. {s_['title']}: {s_['instruction']} (done when: {s_['done_check']})" for i, s_ in enumerate(self.proc["steps"]))
-        lang_note = f" Answer in {self.local['language']}." if self.local else ""
+        lang_note = f" Write the answer in {self.local['language']}." if self.local else ""
         text = (f"You are the expert who recorded this procedure, answering an apprentice who is doing it now.\n"
                 f"Task: {self.proc['task']}.\nSteps:\n{steps}\nThe apprentice is on step {k + 1}: {st['instruction']}\n"
                 f"Known mistakes on this step: {'; '.join(st['known_mistakes']) or 'none'}\n"
-                f"What the expert said while recording:\n{said}\n\n"
+                f"What the expert said while recording, as numbered turns:\n{said}\n\n"
                 f"The apprentice asks: \"{question}\"\n"
-                "Answer in one or two short spoken sentences, concrete and practical, using what the expert said and "
-                "what the picture shows. If the picture shows the answer, say what you see. Do not invent steps the "
-                f"expert did not record.{lang_note}")
+                "If some consecutive turns of the expert's own words answer this, give their first and last turn ids "
+                "(at most about 12 seconds of speech; prefer the current step). That recording is played to the "
+                "apprentice first, in the expert's voice. Then write the answer: one short spoken sentence when you give "
+                "turns (two at most without them), "
+                "concrete and practical, that add what the picture shows or what to do next, without repeating the "
+                "recording word for word. If no turns answer it, use -1 for both ids and answer from the steps and "
+                f"the picture. Do not invent steps the expert did not record.{lang_note}")
         content = [{"type": "text", "text": text}]
         latest = self._still_view if self._still_view and time.time() - self._still_view[0] < STILL_FRESH_S else self._last_view
         if latest is not None:
             ok, buf = cv2.imencode(".jpg", latest[1], [cv2.IMWRITE_JPEG_QUALITY, 80])
             content += [{"type": "text", "text": "The apprentice's work right now:"},
                         {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(buf).decode()}}]
+        fmt = {"type": "json_schema", "json_schema": {"name": "ask", "strict": True, "schema": self.ASK_SCHEMA}}
+        latency = 0.0
+        out = None
         # Reasoning tokens count against max_tokens: at 400 with "low" the answer came back empty
-        r = self.client.chat([{"role": "user", "content": content}], model=SPARK_MODEL, max_tokens=2000, reasoning_effort="minimal", timeout=ASK_TIMEOUT_S)
-        if not r.text.strip():
-            r = self.client.chat([{"role": "user", "content": content[:1]}], model=SPARK_MODEL, max_tokens=2000, reasoning_effort="minimal", timeout=ASK_TIMEOUT_S)
-        self.cost += (r.usage.get("prompt_tokens", 0) * 1.25 + r.usage.get("completion_tokens", 0) * 4.25) / 1e6
-        answer = r.text.strip()
+        for parts in (content, content[:1]):       # retry without the picture if the first answer is empty
+            r = self.client.chat([{"role": "user", "content": parts}], model=SPARK_MODEL, max_tokens=2000,
+                                 reasoning_effort="minimal", timeout=ASK_TIMEOUT_S, response_format=fmt)
+            latency += r.latency_s
+            self.cost += (r.usage.get("prompt_tokens", 0) * 1.25 + r.usage.get("completion_tokens", 0) * 4.25) / 1e6
+            try:
+                out = json.loads(r.text)
+            except (json.JSONDecodeError, TypeError):
+                out = None
+            if out and out.get("answer", "").strip():
+                break
+        answer = (out or {}).get("answer", "").strip()
+        reply = speaker(self.lang).say(answer)
+        clip = self._expert_clip((out or {}).get("clip_from", -1), (out or {}).get("clip_to", -1))
+        if clip:
+            try:
+                reply = _join_wavs(clip["audio"], reply)
+            except Exception as e:          # the spoken answer alone is still a full reply
+                print(f"ask: could not join the expert clip: {e}", flush=True)
+                clip = None
         i = len(self.spoken) + 1
-        self.spoken[i] = speaker(self.lang).say(answer)
-        return {"question": question, "answer": answer, "url": f"/api/spoken/{i}.wav", "step": k,
-                "latency_s": round(r.latency_s, 2)}
+        self.spoken[i] = reply
+        res = {"question": question, "answer": answer, "url": f"/api/spoken/{i}.wav", "step": k,
+               "latency_s": round(latency, 2)}
+        if clip:
+            res["clip"] = {k_: clip[k_] for k_ in ("text", "start", "end", "turns", "step")}
+        return res
+
+    def _expert_clip(self, first: int, last: int) -> dict | None:
+        """The expert's own recorded words for turns first..last, from the clips cut at compile time
+        (procedures/<name>/clips/), as 16 kHz mono PCM. None when the ids are not a short run of
+        recorded turns."""
+        if first is None or last is None or first < 0 or last < first or last - first > 6:
+            return None
+        vs = [self.voice[t] for t in range(first, last + 1) if t in self.voice]
+        if not vs or sum(v["end"] - v["start"] for v in vs) > 15.0:   # speech only: pauses between turns are not in the clips
+            return None
+        pcm = []
+        for v in vs:
+            f = self.dir / v["file"]
+            if not f.exists():
+                return None
+            raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(f), "-ac", "1", "-ar", "16000", "-f", "s16le", "-"],
+                                 capture_output=True, check=True).stdout
+            pcm.append(np.frombuffer(raw, dtype=np.int16))
+        step = next((i for i, s_ in enumerate(self.proc["steps"]) for v in s_["voice"] if v["turn_id"] == first), None)
+        return {"audio": np.concatenate(pcm), "text": " ".join(v["text"] for v in vs).strip(),
+                "start": vs[0]["start"], "end": vs[-1]["end"], "turns": [first, last], "step": step}
 
     def request_check(self, trigger: str = "tap") -> None:
         """A check was asked for (the phone's button, or the novice taking their hands off): take a
@@ -605,3 +668,26 @@ class Session:
         st["fired"], st["armed"] = t, False
         self.publish({"type": "settled", "t": round(t, 2), "step": self.tracker.k})
         self.request_check("settle")
+
+
+def _join_wavs(expert_pcm: np.ndarray, answer_wav: bytes, gap_s: float = 0.45) -> bytes:
+    """The expert's recorded words, a short pause, then the spoken answer, as one WAV at the
+    answer's sample rate (the phone and dashboard play a single URL)."""
+    with wave.open(io.BytesIO(answer_wav)) as f:
+        rate = f.getframerate()
+        ans = np.frombuffer(f.readframes(f.getnframes()), dtype=np.int16)
+    clip = expert_pcm.astype(np.float32)
+    if rate != 16000:                       # resample the 16 kHz clip to the answer's rate
+        n = int(len(clip) * rate / 16000)
+        clip = np.interp(np.linspace(0, len(clip) - 1, n), np.arange(len(clip)), clip)
+    peak = float(np.abs(clip).max() or 1.0)
+    clip = clip * min(4.0, 0.9 * 32767 / peak)      # level the phone recording up to 90% peak, at most 4x
+    gap = np.zeros(int(gap_s * rate), dtype=np.int16)
+    pcm = np.concatenate([clip.astype(np.int16), gap, ans])
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(rate)
+        f.writeframes(pcm.tobytes())
+    return buf.getvalue()

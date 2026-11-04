@@ -296,18 +296,22 @@ def spoken(i: int) -> Response:
 
 
 @app.post("/api/ask")
-async def ask(request: Request, lang: str = "en") -> dict:
+async def ask(request: Request, lang: str = "en", q: str | None = None) -> dict:
     """The novice's "hold to ask" button: the body is the recorded question (m4a/wav/webm bytes).
     Muse Voice Transcribe hears it, Muse Spark answers as the expert, MMS speaks it; the answer is
     played on the glasses and shown on the phone and dashboard."""
     if _session is None:
         raise HTTPException(409, "no live session")
     audio = await request.body()
-    if len(audio) < 2000:
+    if q is None and len(audio) < 2000:
         raise HTTPException(400, "no audio")
     loop = asyncio.get_running_loop()
 
     def work() -> dict:
+        if q is not None:                 # a typed question (testing, or a scripted demo beat): no transcription
+            out = _session.ask(q.strip())
+            out["asr_s"] = None
+            return out
         with tempfile.TemporaryDirectory() as d:
             src = Path(d) / "q.bin"
             src.write_bytes(audio)
@@ -328,7 +332,7 @@ async def ask(request: Request, lang: str = "en") -> dict:
     if out["answer"]:
         msg = {"type": "ask", "t": round(time.time() - _session.t0, 2), "step": out["step"],
                "question": out["question"], "answer": out["answer"], "url": out["url"],
-               "asr_s": out.get("asr_s"), "latency_s": out.get("latency_s")}
+               "asr_s": out.get("asr_s"), "latency_s": out.get("latency_s"), "clip": out.get("clip")}
         await _broadcast(msg)
         if _session.recorder:
             i = int(out["url"].rsplit("/", 1)[1].split(".")[0]) if out["url"] else None

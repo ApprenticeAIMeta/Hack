@@ -148,8 +148,8 @@ function Dashboard() {
 
   useSocket('/ws/dashboard', m => {
     if (m.type === 'ask') {
-      setSaid({ text: m.answer, t: m.t, q: m.question })
-      setChecks(c => [{ t: m.t, step: m.step, kind: 'ask', askRow: true, question: m.question, answer: m.answer }, ...c].slice(0, 60))
+      setSaid({ text: m.answer, t: m.t, q: m.question, clip: m.clip?.text })
+      setChecks(c => [{ t: m.t, step: m.step, kind: 'ask', askRow: true, question: m.question, answer: m.answer, clip: m.clip }, ...c].slice(0, 60))
       flash('voice', 5000); flash('spark', 1500); flash('asr', 2500)
       setTiming(t => ({ ...t, ...(m.asr_s != null && { asr: m.asr_s }), ...(m.latency_s != null && { spark: m.latency_s }) }))
       if (soundRef.current && m.url) new Audio(m.url).play().catch(() => {})
@@ -353,6 +353,7 @@ function Dashboard() {
                   <Bars />
                   <div className="flex-1 text-center">
                     {said.q && <p className="mb-1 text-sm text-[#A0A4AC]" lang={hindi(said.q) ? 'hi' : undefined}>Asked: “{said.q}”</p>}
+                    {said.clip && <p className="mb-1 text-[15px] italic text-[#B5E6FA]"><span className="mono not-italic mr-2 text-[11px] tracking-[0.1em] text-[#7DD3F5]">EXPERT, RECORDED</span>“{said.clip}”</p>}
                     <p className="text-lg font-medium leading-[1.45]" lang={hindi(said.text) ? 'hi' : undefined}>“{said.text}”</p>
                   </div>
                 </motion.div>
@@ -393,7 +394,7 @@ function Dashboard() {
                     <p className="mt-0.5 leading-snug text-[#D4D6DA]">
                       {(c.trigger || c.source === 'photo') && (
                         <span className="mono mr-1.5 text-[11px] text-[#7DD3F5]">{[c.trigger && (c.trigger === 'settle' ? 'hands off' : 'tapped'), c.source === 'photo' && 'still'].filter(Boolean).join(' · ')}</span>
-                      )}{c.askRow ? <>“{c.question}” <span className="text-[#8C9099]">answered:</span> {c.answer}</> : c.warnRow ? c.what : c.reason}</p>
+                      )}{c.askRow ? <>“{c.question}”{c.clip && <> <span className="text-[#7DD3F5]">plays the expert at {fmt(c.clip.start)}:</span> “{c.clip.text}”</>} <span className="text-[#8C9099]">answered:</span> {c.answer}</> : c.warnRow ? c.what : c.reason}</p>
                   </motion.li>
                 ))}
               </AnimatePresence>

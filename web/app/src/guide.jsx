@@ -51,7 +51,7 @@ function Guide() {
 
   useSocket('/ws/guide', m => {
     if (m.type === 'settled') { checkingRef.current = true; setChecking(true); setVerdict(null); later('checking', 20000, () => { checkingRef.current = false; setChecking(false) }) }
-    else if (m.type === 'ask') { setSaid({ text: m.answer, q: m.question, live: true }); later('said', 12000, () => setSaid(s => s && { ...s, live: false })) }
+    else if (m.type === 'ask') { setSaid({ text: m.answer, q: m.question, clip: m.clip?.text, live: true }); later('said', 12000, () => setSaid(s => s && { ...s, live: false })) }
     else if (m.type === 'capped') setWait('Guidance paused: spending limit reached')
     else if (m.type === 'frame') {
       const img = new Image()
@@ -154,6 +154,7 @@ function Guide() {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={said.live ? '#7DD3F5' : '#5C6068'} strokeWidth="2.4" strokeLinecap="round" aria-hidden="true" className="mt-1 shrink-0"><path d="M4 10v4" /><path d="M8 7v10" /><path d="M12 4v16" /><path d="M16 8v8" /><path d="M20 11v2" /></svg>
                   <div className="min-w-0">
                     {said.q && <p className="mb-1 text-[14px] text-[#A0A4AC]" lang={hi(said.q)}>You asked: “{said.q}”</p>}
+                    {said.clip && <p className="mb-1 text-[15px] italic text-[#B5E6FA]"><span className="mono not-italic mr-2 text-[11px] tracking-[0.1em] text-[#7DD3F5]">EXPERT, RECORDED</span>“{said.clip}”</p>}
                     <p className="text-[17px] font-medium leading-[1.45]" lang={hi(said.text)}>“{said.text}”</p>
                   </div>
                 </motion.div>
