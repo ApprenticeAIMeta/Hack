@@ -223,6 +223,11 @@ class Tracker:
             self.look = False
             self.low_ticks = self.novel_ticks = 0
 
+    def deliver(self, t: float) -> None:
+        """Hand out finished checks when there is no frame to tick on (workpiece out of view, SAM
+        stalled), so a step advance or a warning is never held back by the next frame."""
+        self._deliver(t, None)
+
     def flush(self, t: float) -> None:
         """Deliver everything still in flight (end of a replay)."""
         self._deliver(t + 60, None)

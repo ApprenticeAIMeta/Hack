@@ -69,8 +69,10 @@ class MetaClient:
         first = None
         deltas: list[str] = []
         final: dict = {}
+        timeout = kw.pop("timeout", None)   # per-call override (live SAM calls must not stall the guide)
         body = {"model": model, "input": input, "stream": True, **kw}
-        with self._http.stream("POST", "/responses", json=body, headers={"Accept": "text/event-stream"}) as r:
+        with self._http.stream("POST", "/responses", json=body, headers={"Accept": "text/event-stream"},
+                               timeout=timeout if timeout is not None else httpx.USE_CLIENT_DEFAULT) as r:
             if r.status_code >= 400:
                 r.read()
                 _raise(r)

@@ -54,6 +54,8 @@ _device: WebSocket | None = None
 _mirror: dict[str, tuple[float, list[bytes]]] = {}
 _demo: asyncio.Task | None = None
 _last_session: dict | None = None
+_frame_busy = False          # a frame fan-out in flight: newer frames replace it rather than queue behind it
+_device_lock = asyncio.Lock()
 
 
 def embedder() -> Embedder:
@@ -114,15 +116,25 @@ async def _send_all(sockets: set[WebSocket], text: str) -> None:
 
 async def _broadcast(msg: dict) -> None:
     global _guide_frame_t, _last_session
+    global _frame_busy
     if msg["type"] == "snap":
         if _device is not None:
-            await _device.send_text(json.dumps(msg))
+            async with _device_lock:
+                await _device.send_text(json.dumps(msg))
         return
     if msg["type"] == "frame":
-        text = json.dumps({"type": "frame", "t": msg["t"], "jpeg": base64.b64encode(msg["jpeg"]).decode()})
-        if not 0 <= msg["t"] - _guide_frame_t < 1 / GUIDE_FPS:   # a new session restarts t
-            _guide_frame_t = msg["t"]
-            await _send_all(_guides, text)
+        if _frame_busy:
+            return                      # a slow viewer must not build a backlog of frames
+        _frame_busy = True
+        try:
+            text = json.dumps({"type": "frame", "t": msg["t"], "jpeg": base64.b64encode(msg["jpeg"]).decode()})
+            if not 0 <= msg["t"] - _guide_frame_t < 1 / GUIDE_FPS:   # a new session restarts t
+                _guide_frame_t = msg["t"]
+                await _send_all(_guides, text)
+            await _send_all(_dashboards, text)
+        finally:
+            _frame_busy = False
+        return
     else:
         if msg["type"] == "session":
             _last_session = msg
@@ -131,9 +143,10 @@ async def _broadcast(msg: dict) -> None:
     await _send_all(_dashboards, text)
     if msg["type"] == "state" and _device is not None:
         for ev in msg["events"]:
-            if "play" in ev:
+            if ev.get("play") and ev["play"].get("url"):
                 try:
-                    await _device.send_text(json.dumps({"type": "play", "kind": ev["kind"], **ev["play"]}))
+                    async with _device_lock:
+                        await _device.send_text(json.dumps({"type": "play", "kind": ev["kind"], **ev["play"]}))
                 except Exception:
                     pass
 

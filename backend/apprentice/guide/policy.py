@@ -86,13 +86,16 @@ class SparkPolicy:
 
     def _ask(self, text: str, live: np.ndarray, k: int, schema: dict, name: str) -> tuple[dict, float, float]:
         content = [{"type": "text", "text": text}]
-        ref = self.ref(k)
+        ref = self.ref_crop(k)
+        if ref is None:
+            ref = self.ref(k)
         if ref is not None:
-            content += [{"type": "text", "text": "Image 1: the expert's workpiece when this step is done."}, _jpeg_part(ref)]
+            content += [{"type": "text", "text": "Image 1: the expert's workpiece when this step is done."}, _jpeg_part(ref, 384)]
         content += [{"type": "text", "text": "Image 2: the novice's workpiece right now, cropped from a low-quality live stream."},
                     _jpeg_part(live)]
+        # Text and reference are the same on every call for this step: cache that prefix
         r = self.client.chat([{"role": "user", "content": content}], model=SPARK, max_tokens=2000,
-                             reasoning_effort=self.effort,
+                             reasoning_effort=self.effort, prompt_cache_key=f"{name}-{self.proc['name']}-{k}",
                              response_format={"type": "json_schema",
                                               "json_schema": {"name": name, "strict": True, "schema": schema}})
         return json.loads(r.text), r.latency_s, _cost(r.usage)
