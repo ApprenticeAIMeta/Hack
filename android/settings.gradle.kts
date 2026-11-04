@@ -23,3 +23,4 @@ dependencyResolutionManagement {
 rootProject.name = "ApprenticeGlasses"
 
 include(":app")
+include(":lens")
