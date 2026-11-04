@@ -129,7 +129,7 @@ class Session:
         self.voice = {v["turn_id"]: v for s in self.proc["steps"] for v in s["voice"]}
         self.cost = 0.0
         self._intro_said = False
-        self._good_n = 0
+        self._varied: dict[str, int] = {}
         self._hands_on_t = -1e9      # last time a hand was on the work (no reminders while they work)
         self._still_raw: np.ndarray | None = None
         self._find_fut: Future | None = None
@@ -240,7 +240,9 @@ class Session:
             # after it was asked (catch5). Timed checks judge the 720p stream frame, about 4 s. A
             # mistake check judges the still just taken when there is one.
             asked_for = (kind == "done" or self.tracker.cfg.signal) and t == self.tracker.manual_at
-            if asked_for:
+            if asked_for and self.tracker.cfg.signal:
+                still = None        # signal mode: judge the frame at the signal; a still added ~5 s per step (novice7)
+            elif asked_for:
                 still = self._still()
             elif kind == "done":
                 still = None
@@ -548,8 +550,15 @@ class Session:
                 self._watch_settle(t, frame, box)
             self.tracker.tick(t, p, sim, view)
         else:
-            self.tracker.lost(t)
-            self.tracker.deliver(t)
+            if self.tracker.cfg.signal and not self.tracker.finished:
+                # no workpiece box (step 2 looks at an empty channel: no wires in view, so novice7 waited
+                # 26 s): with no box, no hand anywhere in the frame is the done-signal, judged on the frame
+                H, W = frame.shape[:2]
+                self._watch_settle(t, frame, (0, 0, W, H))
+                self.tracker.tick(t, None, None, frame)
+            else:
+                self.tracker.lost(t)
+                self.tracker.deliver(t)
         self._publish_state(t, p, sim, box, frame=frame, timing=(t_start, t_sam, t_model))
 
     def _publish_state(self, t: float, p, sim, box, frame: np.ndarray | None = None, timing=None) -> None:
@@ -572,11 +581,9 @@ class Session:
                 ev["play"] = self._say_line("closer", self.proc.get("closer") or "Hands away, and lean in so I can see the connector.")
                 self._settle.update(armed=True, ticks=0)      # the next clear pause is a new signal
             if e.kind == "looking" and self.proc.get("looking"):
-                ev["play"] = self._say_line("looking", self.proc["looking"])
+                ev["play"] = self._say_varied("looking", self.proc["looking"])
             if e.kind == "step_done" and self.proc.get("good") and e.step + 1 < len(self.proc["steps"]):
-                j = self._good_n % len(self.proc["good"])
-                self._good_n += 1
-                ev["play"] = self._say_line(f"good_{j + 1}", self.proc["good"][j])
+                ev["play"] = self._say_varied("good", self.proc["good"])
             if e.kind == "warn":
                 ev["play"] = self._say_warn(e.step, e.data.get("what") or "", e.data.get("utterance_id"))
             if e.kind == "complete":
@@ -679,6 +686,16 @@ class Session:
         i = self._spoken_ids.get(key) or self._spoken_ids.get("generic_warn")
         return {"url": f"/api/spoken/{i}.wav" if i else None, "text": text}
 
+    def _say_varied(self, name: str, lines) -> dict:
+        """One of several phrasings (voice/<name>_<n>.wav), rotating so the guide never says the same
+        thing twice in a row. A plain string is a single line."""
+        if isinstance(lines, str):
+            return self._say_line(name, lines)
+        n = self._varied.get(name, 0)
+        self._varied[name] = n + 1
+        j = n % len(lines)
+        return self._say_line(f"{name}_{j + 1}", lines[j])
+
     def _line_s(self, name: str) -> float:
         """Length of a pre-rendered voice line in seconds (0 if there is none)."""
         # The cloned lines are 32-bit float WAVs, which the wave module cannot open: read the header
@@ -772,7 +789,9 @@ class Session:
                 f"What the expert said while recording, as numbered turns:\n{said}\n\n"
                 f"The apprentice asks: \"{question}\"\n"
                 "If some consecutive turns of the expert's own words answer this, give their first and last turn ids "
-                "(at most about 12 seconds of speech; prefer the current step). That recording is played to the "
+                "(at most about 12 seconds of speech; prefer the current step). Choose the shortest passage that "
+                "states the answer cleanly: skip turns with slips, self-corrections or asides (\"sorry\", \"oh wow\"), "
+                "and turns that describe doing it wrong. That recording is played to the "
                 "apprentice first, in the expert's voice. Then write the answer: one short spoken sentence when you give "
                 "turns (two at most without them), "
                 "concrete and practical, that add what the picture shows or what to do next, without repeating the "
@@ -802,7 +821,17 @@ class Session:
         answer = (out or {}).get("answer", "").strip()
         reply = speaker(self.lang).say(answer)
         clip = self._expert_clip((out or {}).get("clip_from", -1), (out or {}).get("clip_to", -1))
-        if clip:
+        if clip and self.proc.get("ask_clip_only") and self.lang == "en":
+            # the expert's recorded words are the answer; a synthesized sentence after them is a second,
+            # different voice (novice7). The written answer still goes to the screens.
+            try:
+                reply = _pcm_wav(clip["audio"])
+                clip_only = True
+            except Exception:
+                clip_only = False
+        else:
+            clip_only = False
+        if clip and not clip_only:
             try:
                 reply = _join_wavs(clip["audio"], reply)
             except Exception as e:          # the spoken answer alone is still a full reply
@@ -889,9 +918,23 @@ class Session:
             return
         st["fired"], st["armed"] = t, False
         self.publish({"type": "settled", "t": round(t, 2), "step": self.tracker.k})
-        if self.tracker.cfg.signal and t - self.tracker.entered_t >= self.tracker.cfg.signal_min_s:
+        if self.tracker.cfg.signal and not self.tracker.finished and t - self.tracker.entered_t >= self.tracker.cfg.signal_min_s:
             self.tracker._emit(t, "looking", self.tracker.k)
         self.request_check("settle")
+
+
+def _pcm_wav(pcm: np.ndarray, rate: int = 16000) -> bytes:
+    """The expert's 16 kHz recording as a WAV, levelled like _join_wavs levels it."""
+    clip = pcm.astype(np.float32)
+    peak = float(np.abs(clip).max() or 1.0)
+    clip = clip * min(4.0, 0.9 * 32767 / peak)
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(rate)
+        f.writeframes(clip.astype(np.int16).tobytes())
+    return buf.getvalue()
 
 
 def _join_wavs(expert_pcm: np.ndarray, answer_wav: bytes, gap_s: float = 0.45) -> bytes:
