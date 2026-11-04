@@ -49,6 +49,8 @@ class Config:
     warn_cooldown_s: float = 12.0
     mistake_poll_s: float = 15.0 # also look for mistakes this often while a step is under way
     first_check_s: float = 4.0   # first timed check after a step begins
+    throw_settle_s: float = 3.0  # the throw step listens only after this long (time to hear it)
+    throw_gone_s: float = 1.5    # the plane out of view this long means it was thrown
 
 
 @dataclass
@@ -86,10 +88,16 @@ class SimAsker:
 
 
 class Tracker:
-    def __init__(self, ranges: list[tuple[float, float]], ask: Asker, cfg: Config | None = None):
+    def __init__(self, ranges: list[tuple[float, float]], ask: Asker, cfg: Config | None = None,
+                 throw_last: bool = False):
         self.ranges = ranges
         self.ask = ask
         self.cfg = cfg or Config()
+        # The last step is an action, not a state to photograph (throwing the plane): it is done
+        # when the work leaves the camera's view, or when the novice taps
+        self.throw_last = throw_last
+        self.entered_t = 0.0
+        self.last_seen = 0.0
         self.k = 0
         self.finished = False
         self.instructed = False
@@ -125,6 +133,7 @@ class Tracker:
 
     def _enter(self, t: float, k: int) -> None:
         self.k, self.ahead, self.suspect, self.here = k, None, False, 0
+        self.entered_t = self.last_seen = t
         # The novice has only just started this step: the first timed check waits FIRST_CHECK_S
         # instead of firing at once (catch3: that check's still waited for the spoken instruction
         # and held the pipeline for about 10 s at the start of every step)
@@ -192,7 +201,28 @@ class Tracker:
 
     # -- per frame -----------------------------------------------------------------------
 
+    def _throwing(self) -> bool:
+        return self.throw_last and not self.finished and self.k == len(self.ranges) - 1
+
+    def _finish(self, t: float, reason: str) -> None:
+        self._emit(t, "step_done", self.k, reason=reason)
+        self.finished = True
+        self._emit(t, "complete", self.k)
+
+    def lost(self, t: float) -> None:
+        """A tick with the work out of view. On the throw step that is the throw."""
+        if self._throwing() and t - self.entered_t >= self.cfg.throw_settle_s and t - self.last_seen >= self.cfg.throw_gone_s:
+            self._finish(t, "the plane left the view")
+
     def tick(self, t: float, p: float | None, sim: float | None, frame: np.ndarray) -> None:
+        if self._throwing():
+            self.last_seen = t
+            self._deliver(t, p)
+            if self.asked_for and self.trigger == "tap":
+                self.asked_for = False
+                self._finish(t, "the novice tapped")
+            self.asked_for = False      # hands off the plane is not a throw
+            return
         if not self.instructed:            # first frame: say step 1
             self.instructed = True
             self._emit(t, "instruct", self.k)

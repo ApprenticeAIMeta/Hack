@@ -97,7 +97,8 @@ class Session:
         self.policy = SparkPolicy(self.dir, self.client)
         self.embedder = embedder
         self.pool = ThreadPoolExecutor(4)
-        self.tracker = Tracker(step_ranges(self.proc), self._ask)
+        self.tracker = Tracker(step_ranges(self.proc), self._ask,
+                               throw_last=self.proc["steps"][-1].get("final_action") == "throw")
         self.gate = LiveGate(max_fps=2.0)
         self.recorder = Recorder(procedure, run, len(self.proc["steps"])) if record else None
         self._publish = publish
@@ -399,9 +400,11 @@ class Session:
             k, self._goto = self._goto, None
             self.tracker.goto(t, k)
         if box:
-            self._watch_settle(t, frame, box)
+            if not self.tracker._throwing():
+                self._watch_settle(t, frame, box)
             self.tracker.tick(t, p, sim, view)
         else:
+            self.tracker.lost(t)
             self.tracker.deliver(t)
         self._publish_state(t, p, sim, box, frame=frame, timing=(t_start, t_sam, t_model))
 
@@ -466,7 +469,7 @@ class Session:
         st = self.proc["steps"][k]
         # The caption is the compiled instruction: the raw transcript line can carry transcription
         # slips ("So I tore off the page from!") that read badly on the phone and in the video
-        caption = self._local_steps[st["id"]]["instruction"] if self.local else st["instruction"]
+        caption = self._local_steps.get(st["id"], st)["instruction"] if self.local else st["instruction"]
         url = (self._localized(f"{st['id']}_say") or self._cloned(f"{st['id']}_say")
                or (f"/procedures/{self.name}/{st['say']['file']}" if st.get("say") else None))
         if url:
@@ -488,7 +491,7 @@ class Session:
         # rendered at session start: the matching known mistake, else the generic one
         key = f"{st['id']}_warn{best + 1}" if best is not None and best_n >= 2 else "generic_warn"
         text = advice or what
-        if self.local and best is not None and best_n >= 2:
+        if self.local and best is not None and best_n >= 2 and st["id"] in self._local_steps:
             text = self._local_steps[st["id"]]["known_mistakes"][best]
         url = self._localized(key) or self._cloned(key) or (self._localized("generic_warn") if self.local else None)
         if url:

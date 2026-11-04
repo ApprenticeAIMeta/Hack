@@ -299,6 +299,47 @@
     "t": 134.0,
     "crop": "keyframes/step_06_crop.jpg"
    }
+  },
+  {
+   "id": "step_07",
+   "title": "Throw paper airplane",
+   "instruction": "Hold the bottom keel of the airplane and throw it forward to fly it.",
+   "why": "",
+   "t_start": 135.7,
+   "t_end": 144.9,
+   "objects": [
+    "paper airplane"
+   ],
+   "done_check": "paper airplane is airborne leaving the hand",
+   "known_mistakes": [
+    "gripping the wings instead of the keel",
+    "throwing straight down"
+   ],
+   "final_action": "throw",
+   "voice": [
+    {
+     "file": "clips/step_07_1.m4a",
+     "start": 135.7,
+     "end": 139.25,
+     "text": "Then finally I will hold it",
+     "turn_id": 20
+    },
+    {
+     "file": "clips/step_07_2.m4a",
+     "start": 139.25,
+     "end": 144.9,
+     "text": "and I will fly it like this.",
+     "turn_id": 21
+    }
+   ],
+   "say": {
+    "file": "clips/step_07_say.wav",
+    "text": "Hold the bottom keel of the airplane and throw it forward to fly it."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_07.jpg",
+    "t": 139.5
+   }
   }
  ],
  "transcript": [
