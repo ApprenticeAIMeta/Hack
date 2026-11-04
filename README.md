@@ -25,6 +25,9 @@ Open <http://localhost:8000/?demo=1> for the dashboard and <http://localhost:800
 size for the screen the wearer sees. Both replay `demo/catch5`, a recorded live run, with every
 model call and its reason; "Replay a run" on the dashboard picks another saved run and a speed.
 
+Tests (tracker rules, the progress gauge on the bundled run, the server's endpoints; no key needed):
+`cd backend && uv run pytest -q`.
+
 Running live takes a `META_API_KEY` in `.env`, the glasses (Developer Mode on for them in Meta
 AI) and the Android app in `android/`. `SPEND_CAP_USD` (default 40) stops model calls at that
 total. A new procedure from an expert recording is one command: `backend/tools/new_procedure.sh`.
