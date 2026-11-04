@@ -40,7 +40,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SMOOTH = 5
 REACQUIRE = 10
 PHOTO_MIN_GAP_S = 6.0   # each still freezes the stream for 2-3 s, so most ticks must not ask for one
-PHOTO_TIMEOUT_S = 8.0   # the phone holds a still until the voice line has finished
+PHOTO_TIMEOUT_S = 6.0   # the phone holds a still up to 2.5 s for the voice line, then 2-3 s to capture
 STILL_FRESH_S = 10.0    # a check asked soon after a still may judge the same still
 SAM_TIMEOUT = httpx.Timeout(6.0, connect=3.0)   # one slow SAM call must not stall the guide (17 s seen live)
 DASH_FPS, DASH_H = 8, 640   # dashboard frames: thinned and downscaled before the base64 fan-out
@@ -205,10 +205,15 @@ class Session:
         def run() -> Check:
             if self._stop:
                 raise RuntimeError("session closed")
-            # "Which step" takes a fresh still (each one freezes the stream 2-3 s); a mistake check
-            # judges the still just taken when there is one, else the stream frame
-            if kind == "done":
+            # Only a check the novice asked for (hands off, tap) takes a fresh still: each still waits
+            # for the voice line, then freezes the stream 2-3 s, which made every check answer 10-15 s
+            # after it was asked (catch5). Timed checks judge the 720p stream frame, about 4 s. A
+            # mistake check judges the still just taken when there is one.
+            asked_for = kind == "done" and t == self.tracker.manual_at
+            if asked_for:
                 still = self._still()
+            elif kind == "done":
+                still = None
             else:
                 cached = self._still_view
                 still = cached[1] if cached and time.time() - cached[0] < STILL_FRESH_S else None
@@ -571,6 +576,8 @@ class Session:
         for hands every SETTLE_HAND_S; two clear looks in a row fire one check, and a hand coming
         back re-arms it."""
         st = self._settle
+        if st.get("step") != self.tracker.k:        # a new step: the next pause counts
+            st.update(step=self.tracker.k, armed=True, ticks=0, fired=-1e9)
         if t - st.get("hand_t", -1e9) < SETTLE_HAND_S:
             return
         st["hand_t"] = t

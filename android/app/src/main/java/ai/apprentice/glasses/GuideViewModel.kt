@@ -185,7 +185,7 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
       // The glasses play a shutter sound on capture, which talks over the guidance; hold the still
       // until the current line has finished (the server waits up to 8 s before using a stream frame)
       var waited = 0
-      while (player != null && waited < 6000) { delay(100); waited += 100 }
+      while (player != null && waited < 2500) { delay(100); waited += 100 }
       s?.capturePhoto()
           ?.onSuccess { photo -> jpegOf(photo)?.let { answer.put("jpeg", Base64.encodeToString(it, Base64.NO_WRAP)) } }
           ?.onFailure { e, _ -> Log.w(TAG, "capture: $e") }
