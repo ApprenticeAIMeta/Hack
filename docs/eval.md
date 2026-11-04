@@ -75,4 +75,4 @@ fold is under way; "wrong" would mean the still shows an earlier step.
   the paper are the ones a person cannot judge either.
 - catch1's planted mistakes (corners short, points inside, one wing) were advanced past: the
   step was attempted but done wrong, which is the mistake-catching gap above, not a tracking error.
-- The 5 advances judged on a stream frame and the throw (it leaves the view) have no still to check.
+- The other 5 advances (4 judged on a stream frame, plus the throw, which ends when the plane leaves the view) have no still to check.
