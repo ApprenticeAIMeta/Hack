@@ -30,8 +30,12 @@ PYTHONPATH=. .venv/bin/python -m apprentice.compile.build "$ROOT/footage/${name}
   | grep -vE "Warning|warn|Loading weights|Redirects"
 
 stamp "training the progress model and picking reference photos"
-runs="expert1=$ROOT/footage/${name}_expert1.mp4"
-[ -n "$second" ] && runs="$runs expert2=$ROOT/footage/${name}_expert2.mp4"
+# The recordings were just pulled, so anything cached under these labels is from an older take
+rm -f "$ROOT/out/progress/${name}_expert"*
+# Run labels name the cached proxies, hand tracks and stream sims in out/progress/, so they carry the
+# procedure name: a bare "expert1" would silently reuse another procedure's cached footage
+runs="${name}_expert1=$ROOT/footage/${name}_expert1.mp4"
+[ -n "$second" ] && runs="$runs ${name}_expert2=$ROOT/footage/${name}_expert2.mp4"
 PYTHONPATH=. .venv/bin/python -m apprentice.progress.train "$name" $runs 2>&1 | grep -vE "Warning|warn|Loading weights|Redirects"
 
 stamp "ready: start the guide with procedure \"$name\""
