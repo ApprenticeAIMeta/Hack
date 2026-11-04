@@ -107,7 +107,12 @@ function Dashboard() {
   }
 
   useSocket('/ws/dashboard', m => {
-    if (m.type === 'frame') {
+    if (m.type === 'ask') {
+      setSaid({ text: m.answer, t: m.t, q: m.question })
+      setChecks(c => [{ t: m.t, step: m.step, kind: 'ask', askRow: true, question: m.question, answer: m.answer }, ...c].slice(0, 60))
+      flash('voice', 5000); flash('spark', 1500)
+      if (soundRef.current && m.url) new Audio(m.url).play().catch(() => {})
+    } else if (m.type === 'frame') {
       const src = 'data:image/jpeg;base64,' + m.jpeg
       // 8 frames a second: paint the feed directly instead of re-rendering the whole page each time
       if (feedImg.current) feedImg.current.src = src
@@ -273,18 +278,18 @@ function Dashboard() {
                 <AnimatePresence initial={false}>
                   {checks.map((c, i) => (
                     <motion.li key={`${c.t}-${i}-${c.kind}`} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
-                      className={`rounded-lg px-2.5 py-1.5 text-xs ${c.warnRow ? 'bg-amber-400/15 text-amber-100' : 'bg-white/[.03]'}`}>
+                      className={`rounded-lg px-2.5 py-1.5 text-xs ${c.warnRow ? 'bg-amber-400/15 text-amber-100' : c.askRow ? 'bg-cyan-300/10' : 'bg-white/[.03]'}`}>
                       <div className="flex items-center gap-2 font-mono text-[11px] text-white/50">
                         <span className="tabular-nums">{fmt(c.t)}</span>
                         <span>step {pad(c.step + 1)}</span>
-                        {c.warnRow ? <span className="text-amber-300">WARNING</span>
+                        {c.askRow ? <span className="text-cyan-200">ASKED</span> : c.warnRow ? <span className="text-amber-300">WARNING</span>
                           : <span className={c.yes ? 'text-emerald-300' : 'text-white/60'}>{c.check === 'locate' ? `sees ${c.completed} done` : c.yes ? 'done' : 'not yet'}</span>}
                         {c.conf != null && <span>{Math.round(c.conf * 100)}%</span>}
                         <span className="flex-1" />
                         {c.source && <span>{c.source}</span>}
                         {c.latency_s != null && <span className="tabular-nums text-cyan-200">{c.latency_s.toFixed(1)}s</span>}
                       </div>
-                      <p className="mt-0.5 leading-snug text-white/80">{c.warnRow ? c.what : c.reason}</p>
+                      <p className="mt-0.5 leading-snug text-white/80">{c.askRow ? `“${c.question}” → ${c.answer}` : c.warnRow ? c.what : c.reason}</p>
                     </motion.li>
                   ))}
                 </AnimatePresence>
@@ -310,7 +315,8 @@ function Dashboard() {
                 <motion.div key={said.text} initial={{ y: 14, opacity: 0, filter: 'blur(6px)' }} animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }} exit={{ opacity: 0 }} transition={spring}
                   className="absolute inset-x-8 bottom-5 flex items-start justify-center gap-3">
                   <div className="mt-1.5"><Waves /></div>
-                  <p className="max-w-xl rounded-xl bg-zinc-950/70 px-4 py-2 text-center text-lg leading-snug backdrop-blur">“{said.text}”</p>
+                  <p className="max-w-xl rounded-xl bg-zinc-950/70 px-4 py-2 text-center text-lg leading-snug backdrop-blur">
+                    {said.q && <span className="block text-sm text-white/60">Asked: “{said.q}”</span>}“{said.text}”</p>
                 </motion.div>
               )}
             </AnimatePresence>

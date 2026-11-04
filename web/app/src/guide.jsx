@@ -48,7 +48,8 @@ function Guide() {
   const later = (key, ms, fn) => { clearTimeout(timers.current[key]); timers.current[key] = setTimeout(fn, ms) }
 
   useSocket('/ws/guide', m => {
-    if (m.type === 'capped') setWait('Guidance paused: spending limit reached')
+    if (m.type === 'ask') { setSaid({ text: m.answer, q: m.question, live: true }); later('said', 12000, () => setSaid(s => s && { ...s, live: false })) }
+    else if (m.type === 'capped') setWait('Guidance paused: spending limit reached')
     else if (m.type === 'frame') {
       const img = new Image()
       img.onload = () => setFrame(img)
@@ -148,6 +149,7 @@ function Guide() {
                   className="flex gap-3 px-4 py-3">
                   <div className="pt-1">{said.live ? <Waves /> : <span className="block h-4 w-[2px] rounded-full bg-white/30" />}</div>
                   <p className="text-[18px] leading-snug">
+                    {said.q && <span className="mb-1 block text-[15px] text-white/60">You asked: “{said.q}”</span>}
                     <span className="mb-0.5 block font-mono text-[11px] tracking-wider text-cyan-200">EXPERT</span>
                     “{said.text}”
                   </p>

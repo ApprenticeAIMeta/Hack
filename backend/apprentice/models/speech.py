@@ -56,8 +56,12 @@ class Speaker:
         with self._lock:
             if self._model is None:
                 self._load()
-            with torch.no_grad():
-                wav = self._model(**self._tok(text, return_tensors="pt")).waveform[0].numpy()
+            ids = self._tok(text.strip() or ".", return_tensors="pt")
+            if ids["input_ids"].shape[-1] == 0:    # nothing the model can voice (empty, digits only, other script)
+                wav = np.zeros(int(0.2 * self._model.config.sampling_rate), dtype=np.float32)
+            else:
+                with torch.no_grad():
+                    wav = self._model(**ids).waveform[0].numpy()
         pcm = (np.clip(wav, -1, 1) * 32767).astype(np.int16)
         buf = io.BytesIO()
         with wave.open(buf, "wb") as f:

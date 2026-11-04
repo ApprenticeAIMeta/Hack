@@ -3,6 +3,7 @@ package ai.apprentice.glasses
 import android.Manifest.permission.BLUETOOTH
 import android.Manifest.permission.BLUETOOTH_CONNECT
 import android.Manifest.permission.INTERNET
+import android.Manifest.permission.RECORD_AUDIO
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.WindowManager
@@ -16,6 +17,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -93,7 +99,7 @@ class MainActivity : ComponentActivity() {
         )
       }
     }
-    androidPermissions.launch(arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET))
+    androidPermissions.launch(arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET, RECORD_AUDIO))
   }
 }
 
@@ -156,7 +162,25 @@ private fun GuidingScreen(ui: GuideUi, onStop: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
       Text("${ui.framesSent} frames sent", color = Ink, fontSize = 14.sp, modifier = Modifier.weight(1f))
+      AskButton(ui.asking, vm::startAsking, vm::stopAsking)
+      Spacer(Modifier.width(10.dp))
       Button(onClick = onStop, colors = ButtonDefaults.buttonColors(containerColor = Red)) { Text("Stop") }
     }
   }
+}
+
+/** Hold to record a question for the expert on the phone's mic; release to send it. */
+@Composable
+private fun AskButton(asking: Boolean, onStart: () -> Unit, onStop: () -> Unit) {
+  androidx.compose.foundation.layout.Box(
+      Modifier
+          .background(if (asking) Red else Blue, RoundedCornerShape(24.dp))
+          .pointerInput(Unit) {
+            detectTapGestures(onPress = {
+              onStart()
+              try { awaitRelease() } finally { onStop() }
+            })
+          }
+          .padding(horizontal = 18.dp, vertical = 12.dp),
+  ) { Text(if (asking) "Listening…" else "Hold to ask", color = Color.White, fontWeight = FontWeight.SemiBold) }
 }

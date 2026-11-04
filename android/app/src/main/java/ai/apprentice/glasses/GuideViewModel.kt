@@ -5,6 +5,10 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
+import java.io.File
+import android.media.MediaRecorder
 import android.util.Base64
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
@@ -47,6 +51,7 @@ data class GuideUi(
     val server: String = BuildConfig.DEFAULT_SERVER,
     val procedure: String = "airplane",
     val lang: String = "en",
+    val asking: Boolean = false,
     val run: String = "",
     val running: Boolean = false,
     val status: String = "Pair the glasses to begin",
@@ -220,6 +225,51 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
       setOnCompletionListener { it.release(); playNext() }
       setOnErrorListener { mp, _, _ -> mp.release(); playNext(); true }
       prepareAsync()
+    }
+  }
+
+  // -- "hold to ask": record on the phone's mic (never the glasses' mic, which ends the stream), post the clip --
+  private var recorder: MediaRecorder? = null
+  private var askFile: File? = null
+
+  fun startAsking() {
+    if (recorder != null || !_ui.value.running) return
+    val f = File(getApplication<Application>().cacheDir, "ask.m4a")
+    try {
+      recorder = MediaRecorder(getApplication()).apply {
+        setAudioSource(MediaRecorder.AudioSource.MIC)
+        setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+        setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+        setAudioSamplingRate(16000)
+        setAudioEncodingBitRate(48000)
+        setOutputFile(f.absolutePath)
+        prepare()
+        start()
+      }
+      askFile = f
+      _ui.update { it.copy(asking = true) }
+    } catch (e: Exception) {
+      Log.w(TAG, "ask: $e")
+      recorder = null
+    }
+  }
+
+  fun stopAsking() {
+    val r = recorder ?: return
+    recorder = null
+    _ui.update { it.copy(asking = false) }
+    try { r.stop() } catch (e: Exception) { Log.w(TAG, "ask stop: $e"); r.release(); return }
+    r.release()
+    val f = askFile ?: return
+    val u = _ui.value
+    viewModelScope.launch(Dispatchers.IO) {
+      val url = u.server.replaceFirst("ws", "http") + "/api/ask?lang=" + u.lang
+      val body = f.readBytes().toRequestBody("audio/mp4".toMediaType())
+      try {
+        http.newCall(Request.Builder().url(url).post(body).build()).execute().use { resp ->
+          Log.i(TAG, "ask: ${resp.code} ${resp.body?.string()?.take(200)}")
+        }
+      } catch (e: Exception) { Log.w(TAG, "ask send: $e") }
     }
   }
 

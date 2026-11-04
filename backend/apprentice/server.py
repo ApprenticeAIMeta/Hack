@@ -29,10 +29,13 @@ import asyncio
 import base64
 import json
 import re
+import subprocess
+import tempfile
+import time
 from pathlib import Path
 
 import cv2
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -249,6 +252,45 @@ def spoken(i: int) -> Response:
     if _session is None or i not in _session.spoken:
         raise HTTPException(404, "no such line")
     return Response(_session.spoken[i], media_type="audio/wav")
+
+
+@app.post("/api/ask")
+async def ask(request: Request, lang: str = "en") -> dict:
+    """The novice's "hold to ask" button: the body is the recorded question (m4a/wav/webm bytes).
+    Muse Voice Transcribe hears it, Muse Spark answers as the expert, MMS speaks it; the answer is
+    played on the glasses and shown on the phone and dashboard."""
+    if _session is None:
+        raise HTTPException(409, "no live session")
+    audio = await request.body()
+    if len(audio) < 2000:
+        raise HTTPException(400, "no audio")
+    loop = asyncio.get_running_loop()
+
+    def work() -> dict:
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d) / "q.bin"
+            src.write_bytes(audio)
+            wav = Path(d) / "q.wav"
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-ac", "1", "-ar", "16000", str(wav)], check=True)
+            t0 = time.perf_counter()
+            heard = _session.client.transcribe(wav, mode="PUSH_TO_TALK").text.strip()
+            t_asr = time.perf_counter() - t0
+        print(f"ask: heard {heard!r} in {t_asr:.1f} s", flush=True)
+        if not heard:
+            return {"question": "", "answer": "", "url": None, "asr_s": round(t_asr, 2)}
+        out = _session.ask(heard)
+        print(f"ask: answered {out['answer']!r} in {out['latency_s']} s", flush=True)
+        out["asr_s"] = round(t_asr, 2)
+        return out
+
+    out = await loop.run_in_executor(None, work)
+    if out["answer"]:
+        await _broadcast({"type": "ask", "t": round(time.time() - _session.t0, 2), "step": out["step"],
+                          "question": out["question"], "answer": out["answer"], "url": out["url"]})
+        if _device is not None:
+            async with _device_lock:
+                await _device.send_text(json.dumps({"type": "play", "kind": "ask", "url": out["url"], "text": out["answer"]}))
+    return out
 
 
 @app.post("/api/check")

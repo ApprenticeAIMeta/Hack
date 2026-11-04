@@ -10,7 +10,7 @@ technical depth 20%. "Hours" are solo build-and-test estimates.
 
 ## Tier 1: build tonight if the live run is clean
 
-### Ask the expert
+### Ask the expert (built Nov 3)
 The novice says "is this right?" or "which wire goes to Y?" into the phone. Muse Voice
 Transcribe turns it into text, Muse Spark answers from the expert's transcript plus the current
 still, and MMS-TTS speaks the answer. Turns a step checker into a tutor and gives the demo a
@@ -28,6 +28,10 @@ proof the system saw the whole job. About 30 minutes.
 Shows the project is priced and shippable. 15 minutes.
 
 ## Tier 2: after the video is safe
+
+### Any language (built Nov 3)
+compile/localize.py: Muse Spark translates the spoken and shown lines, MMS-TTS speaks them in
+that language; Hindi rendered for the airplane. The checks stay in English.
 
 ### Expert's own voice (built, generating)
 Chatterbox (Resemble AI, MIT) clones the expert from 30 s of the narration, on the laptop's GPU.

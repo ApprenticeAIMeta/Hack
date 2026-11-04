@@ -30,7 +30,7 @@ from apprentice.capture.frame_gate import LiveGate
 from apprentice.guide.policy import Check, SparkPolicy
 from apprentice.guide.recorder import Recorder
 from apprentice.guide.state import Tracker, step_ranges
-from apprentice.models.meta import SAM, MetaClient
+from apprentice.models.meta import SAM, SPARK as SPARK_MODEL, MetaClient
 from apprentice.models.speech import speaker
 from apprentice.progress.crop import _touches, crop, parse_lines
 from apprentice.progress.embed import Embedder
@@ -115,6 +115,7 @@ class Session:
         self._photo_last = -1e9
         self.photos_used = self.photos_failed = 0
         self._still_view: tuple[float, np.ndarray] | None = None   # (taken at, cropped still)
+        self._last_view: tuple[float, np.ndarray] | None = None    # (t, cropped stream frame) for questions
         self._deliver_due = False      # a check finished; hand it out even if no frame arrives
         self._dash_t = -1e9
         self.sam_failures = 0
@@ -366,6 +367,7 @@ class Session:
             sim = float(pred["similarity"][0])
             self.curve.append((round(t, 2), round(p, 4)))
             view = self._view(frame, box)
+            self._last_view = (t, view)
         t_model = time.time()
         if box:
             self.tracker.tick(t, p, sim, view)
@@ -479,6 +481,40 @@ class Session:
             i = len(self.spoken) + 1
             self.spoken[i] = sp.say(text)
             self._spoken_ids[key] = i
+
+    def ask(self, question: str) -> dict:
+        """The novice asked the expert something. Muse Spark answers from the expert's recording
+        (steps, their words) and what the glasses see now, in the novice's language, in two
+        sentences at most; the answer is spoken with MMS-TTS. Returns {question, answer, url, step}."""
+        k = self.tracker.k
+        st = self.proc["steps"][k]
+        said = "\n".join(f"step {i + 1}: " + " ".join(v["text"] for v in s_["voice"]) for i, s_ in enumerate(self.proc["steps"]) if s_["voice"])
+        steps = "\n".join(f"{i + 1}. {s_['title']}: {s_['instruction']} (done when: {s_['done_check']})" for i, s_ in enumerate(self.proc["steps"]))
+        lang_note = f" Answer in {self.local['language']}." if self.local else ""
+        text = (f"You are the expert who recorded this procedure, answering an apprentice who is doing it now.\n"
+                f"Task: {self.proc['task']}.\nSteps:\n{steps}\nThe apprentice is on step {k + 1}: {st['instruction']}\n"
+                f"Known mistakes on this step: {'; '.join(st['known_mistakes']) or 'none'}\n"
+                f"What the expert said while recording:\n{said}\n\n"
+                f"The apprentice asks: \"{question}\"\n"
+                "Answer in one or two short spoken sentences, concrete and practical, using what the expert said and "
+                "what the picture shows. If the picture shows the answer, say what you see. Do not invent steps the "
+                f"expert did not record.{lang_note}")
+        content = [{"type": "text", "text": text}]
+        latest = self._still_view if self._still_view and time.time() - self._still_view[0] < STILL_FRESH_S else self._last_view
+        if latest is not None:
+            ok, buf = cv2.imencode(".jpg", latest[1], [cv2.IMWRITE_JPEG_QUALITY, 80])
+            content += [{"type": "text", "text": "The apprentice's work right now:"},
+                        {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(buf).decode()}}]
+        # Reasoning tokens count against max_tokens: at 400 with "low" the answer came back empty
+        r = self.client.chat([{"role": "user", "content": content}], model=SPARK_MODEL, max_tokens=2000, reasoning_effort="minimal")
+        if not r.text.strip():
+            r = self.client.chat([{"role": "user", "content": content[:1]}], model=SPARK_MODEL, max_tokens=2000, reasoning_effort="minimal")
+        self.cost += (r.usage.get("prompt_tokens", 0) * 1.25 + r.usage.get("completion_tokens", 0) * 4.25) / 1e6
+        answer = r.text.strip()
+        i = len(self.spoken) + 1
+        self.spoken[i] = speaker(self.lang).say(answer)
+        return {"question": question, "answer": answer, "url": f"/api/spoken/{i}.wav", "step": k,
+                "latency_s": round(r.latency_s, 2)}
 
     def request_check(self) -> None:
         """The novice asked for a check: take a fresh still and ask Spark on the next frame."""
