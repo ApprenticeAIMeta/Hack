@@ -121,10 +121,13 @@ def mirror(name: str, t: float) -> Response:
     return Response(frames[i], media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
 
 
+SEND_TIMEOUT_S = 1.0   # a viewer that stops reading (closed laptop, killed tab) must not stall the rest
+
+
 async def _send_all(sockets: set[WebSocket], text: str) -> None:
     for ws in list(sockets):
         try:
-            await ws.send_text(text)
+            await asyncio.wait_for(ws.send_text(text), SEND_TIMEOUT_S)
         except Exception:
             sockets.discard(ws)
 
