@@ -120,7 +120,8 @@ class Tracker:
         self.look = False          # a mistake check is wanted now (does not pre-arm the warning)
         self.trigger = ""           # what asked for the pending check: "tap" (phone) or "settle" (hands off)
         self.manual_trigger = ""
-        self.signal_at = -1.0      # when the novice's last done-signal was checked (signal mode)
+        self.signal_at = -1.0
+        self.no_check: set[int] = set()  # signal mode: steps whose signal advances without a Spark check      # when the novice's last done-signal was checked (signal mode)
         self.peak = deque()      # (t, p)
         self.low_ticks = 0
         self.novel_ticks = 0
@@ -276,7 +277,16 @@ class Tracker:
         if cfg.signal:
             if self.asked_for:
                 self.asked_for = False
-                if t - self.entered_t >= cfg.signal_min_s and not self._busy("mistake"):
+                if t - self.entered_t >= cfg.signal_min_s and self.k in self.no_check:
+                    # the camera cannot verify this step (the polarity at the port): asking Spark adds
+                    # 4-6 s and never changes the answer, so the signal itself moves on
+                    reason = "novice signalled done; step not visually verifiable"
+                    if self.k + 1 >= len(self.ranges):
+                        self._finish(t, reason)
+                    else:
+                        self._emit(t, "step_done", self.k, reason=reason)
+                        self._enter(t, self.k + 1)
+                elif t - self.entered_t >= cfg.signal_min_s and not self._busy("mistake"):
                     self.signal_at = self.manual_at = t
                     self.manual_trigger = self.trigger
                     self._ask(t, "mistake", frame)

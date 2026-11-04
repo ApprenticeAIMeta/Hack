@@ -121,6 +121,7 @@ class Session:
                      signal=self.proc.get("advance_on") == "signal")
         self.tracker = Tracker(step_ranges(self.proc), self._ask, cfg,
                                throw_last=self.proc["steps"][-1].get("final_action") == "throw")
+        self.tracker.no_check = {i for i, st in enumerate(self.proc["steps"]) if st.get("verifiable") is False}
         self.gate = LiveGate(max_fps=2.0)
         self.recorder = Recorder(procedure, run, len(self.proc["steps"])) if record else None
         self._publish = publish

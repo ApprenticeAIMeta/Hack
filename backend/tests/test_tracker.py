@@ -168,3 +168,13 @@ def test_signal_mode_an_unclear_view_asks_once_then_moves_on():
     tr.asked_for, tr.trigger = True, "settle"        # still unclear: never stuck, moves on
     run(tr, 10.5, 13)
     assert tr.k == 1
+
+
+def test_signal_mode_an_unverifiable_step_moves_on_without_asking():
+    ask = Scripted()
+    tr = Tracker(RANGES, ask, Config(signal=True))
+    tr.no_check = {0}
+    run(tr, 0, 7)
+    tr.asked_for, tr.trigger = True, "settle"
+    run(tr, 7.5, 8)
+    assert tr.k == 1 and not [a for a in ask.asked if a[0] == "mistake"]
