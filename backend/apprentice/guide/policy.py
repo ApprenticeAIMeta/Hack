@@ -17,6 +17,8 @@ import numpy as np
 
 from apprentice.models.meta import SPARK, MetaClient
 
+LIVE_TIMEOUT_S = 15.0   # a live check slower than this is dropped as unclear (seen: 30 s); the next tick asks again
+
 
 @dataclass
 class Check:
@@ -94,7 +96,7 @@ class SparkPolicy:
         content += [{"type": "text", "text": "Image 2: the novice's workpiece right now, cropped from a low-quality live stream."},
                     _jpeg_part(live)]
         # Text and reference are the same on every call for this step: cache that prefix
-        r = self.client.chat([{"role": "user", "content": content}], model=SPARK, max_tokens=2000,
+        r = self.client.chat([{"role": "user", "content": content}], model=SPARK, max_tokens=2000, timeout=LIVE_TIMEOUT_S,
                              reasoning_effort=self.effort, prompt_cache_key=f"{name}-{self.proc['name']}-{k}",
                              response_format={"type": "json_schema",
                                               "json_schema": {"name": name, "strict": True, "schema": schema}})
@@ -126,7 +128,7 @@ class SparkPolicy:
                         "the novice's workpiece has reached. A step in progress is not completed. "
                         "Set unclear only if the workpiece is hidden or out of view. Keep the reason under 12 words."})
         # Everything up to the live frame is the same on every call, so it is sent first and cached
-        r = self.client.chat([{"role": "user", "content": content}], model=SPARK, max_tokens=2000,
+        r = self.client.chat([{"role": "user", "content": content}], model=SPARK, max_tokens=2000, timeout=LIVE_TIMEOUT_S,
                              reasoning_effort=self.effort, prompt_cache_key=f"locate-{self.proc['name']}",
                              response_format={"type": "json_schema",
                                               "json_schema": {"name": "locate", "strict": True, "schema": LOCATE_SCHEMA}})
@@ -161,7 +163,7 @@ class SparkPolicy:
                     {"type": "text", "text": "Is this step fully finished on the novice's work? Answer not_done if any part of this step "
                      "is still missing or still being done, or if hands are partway through it. A later step's state counts as done. "
                      "Answer unclear only if the work is hidden. Keep the reason under 12 words."}]
-        r = self.client.chat([{"role": "user", "content": content}], model=SPARK, max_tokens=2000, reasoning_effort=self.effort,
+        r = self.client.chat([{"role": "user", "content": content}], model=SPARK, max_tokens=2000, timeout=LIVE_TIMEOUT_S, reasoning_effort=self.effort,
                              response_format={"type": "json_schema",
                                               "json_schema": {"name": "confirm", "strict": True, "schema": DONE_SCHEMA}})
         d = json.loads(r.text)

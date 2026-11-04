@@ -25,7 +25,7 @@ size for the screen the wearer sees. Both replay `demo/catch5`, a recorded live 
 model call and its reason; "Replay a run" on the dashboard picks another saved run and a speed.
 
 Running live takes a `META_API_KEY` in `.env`, the glasses (Developer Mode on for them in Meta
-AI) and the Android app in `android/`. `SPEND_CAP_USD` (default 10) stops model calls at that
+AI) and the Android app in `android/`. `SPEND_CAP_USD` (default 40) stops model calls at that
 total. A new procedure from an expert recording is one command: `backend/tools/new_procedure.sh`.
 
 ## What each model does

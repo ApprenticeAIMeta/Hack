@@ -43,6 +43,7 @@ REACQUIRE = 10
 PHOTO_MIN_GAP_S = 6.0   # each still freezes the stream for 2-3 s, so most ticks must not ask for one
 PHOTO_TIMEOUT_S = 6.0   # the phone holds a still up to 2.5 s for the voice line, then 2-3 s to capture
 STILL_FRESH_S = 10.0    # a check asked soon after a still may judge the same still
+ASK_TIMEOUT_S = 20.0    # a spoken answer slower than this fails instead of leaving the phone waiting
 SAM_TIMEOUT = httpx.Timeout(6.0, connect=3.0)   # one slow SAM call must not stall the guide (17 s seen live)
 DASH_FPS, DASH_H = 8, 640   # dashboard frames: thinned and downscaled before the base64 fan-out
 # "Hands off" is the signal that a step is done: no hand over the paper on two looks in a row.
@@ -50,7 +51,7 @@ DASH_FPS, DASH_H = 8, 640   # dashboard frames: thinned and downscaled before th
 SETTLE_HAND_S = 1.5         # how often SAM looks for hands while the paper is in view
 SETTLE_TICKS = 2            # clear looks in a row (about 1.5-3 s)
 SETTLE_COOLDOWN_S = 8.0     # between hands-off checks until a hand touches the paper again
-SPEND_CAP_USD = float(os.environ.get("SPEND_CAP_USD", "10"))   # across all sessions of this server
+SPEND_CAP_USD = float(os.environ.get("SPEND_CAP_USD", "40"))   # across all sessions of this server
 
 
 def _iou(a, b) -> float:
@@ -193,6 +194,8 @@ class Session:
                 self._cv.notify()
 
     def close(self) -> None:
+        if self._stop:                  # a replaced device connection closes its session twice
+            return
         self._decoder = None
         self._stop = True
         Session.spent_usd += self.cost
@@ -553,9 +556,9 @@ class Session:
             content += [{"type": "text", "text": "The apprentice's work right now:"},
                         {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(buf).decode()}}]
         # Reasoning tokens count against max_tokens: at 400 with "low" the answer came back empty
-        r = self.client.chat([{"role": "user", "content": content}], model=SPARK_MODEL, max_tokens=2000, reasoning_effort="minimal")
+        r = self.client.chat([{"role": "user", "content": content}], model=SPARK_MODEL, max_tokens=2000, reasoning_effort="minimal", timeout=ASK_TIMEOUT_S)
         if not r.text.strip():
-            r = self.client.chat([{"role": "user", "content": content[:1]}], model=SPARK_MODEL, max_tokens=2000, reasoning_effort="minimal")
+            r = self.client.chat([{"role": "user", "content": content[:1]}], model=SPARK_MODEL, max_tokens=2000, reasoning_effort="minimal", timeout=ASK_TIMEOUT_S)
         self.cost += (r.usage.get("prompt_tokens", 0) * 1.25 + r.usage.get("completion_tokens", 0) * 4.25) / 1e6
         answer = r.text.strip()
         i = len(self.spoken) + 1

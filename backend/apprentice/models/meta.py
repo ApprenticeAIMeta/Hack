@@ -54,9 +54,11 @@ class MetaClient:
         r.raise_for_status()
         return [m["id"] for m in r.json().get("data", [])]
 
-    def chat(self, messages: list[dict], model: str = SPARK, **kw) -> Result:
+    def chat(self, messages: list[dict], model: str = SPARK, timeout: float | None = None, **kw) -> Result:
+        """timeout overrides the client's 600 s default for this call (live checks must not hang the guide)."""
         t0 = time.perf_counter()
-        r = self._http.post("/chat/completions", json={"model": model, "messages": messages, **kw})
+        r = self._http.post("/chat/completions", json={"model": model, "messages": messages, **kw},
+                            timeout=httpx.Timeout(timeout, connect=5.0) if timeout is not None else httpx.USE_CLIENT_DEFAULT)
         dt = time.perf_counter() - t0
         _raise(r)
         data = r.json()
