@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import time
 from pathlib import Path
 
@@ -51,8 +52,18 @@ def build(video: Path, name: str, recompile: bool = False, effort: str = "medium
     client = MetaClient()
     cache = ROOT / "out" / "compile" / name
     dest = ROOT / "procedures" / name
+    # The cache (transcript, proxy, Spark output) belongs to one source file: a different video
+    # compiled under the same name starts clean. Compiling the Nov 3 recording silently reused the
+    # Oct 22 transcript and proxy before this check existed.
+    stamp = {"video": str(video.resolve()), "size": video.stat().st_size, "mtime": int(video.stat().st_mtime)}
+    stamp_f = cache / "source.json"
+    if cache.exists() and (not stamp_f.exists() or json.loads(stamp_f.read_text()) != stamp):
+        for old in cache.iterdir():
+            old.unlink() if old.is_file() else shutil.rmtree(old)
+        print("compile cache cleared: source video changed")
     for d in (cache, dest / "clips", dest / "keyframes"):
         d.mkdir(parents=True, exist_ok=True)
+    stamp_f.write_text(json.dumps(stamp))
     for old in [*(dest / "clips").glob("*"), *(dest / "keyframes").glob("*")]:
         old.unlink()  # a recompile can produce fewer steps; never keep stale media
     info = media.probe(video)

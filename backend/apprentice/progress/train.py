@@ -45,8 +45,10 @@ def stream_sim(src: Path, dst: Path) -> Path:
     """What the same footage looks like after the glasses' stream (720p HEVC at about 330 kbps), resampled to 2 fps."""
     if not dst.exists():
         mid = dst.with_suffix(".s7.mp4")
-        _ff("-i", str(src), "-an", "-vf", f"scale={PROXY_W}:-2,fps={STREAM_FPS}", "-c:v", "libx265",
-            "-b:v", f"{STREAM_KBPS}k", "-x265-params", "log-level=error", "-preset", "fast", str(mid))
+        # The Mac's hardware HEVC encoder, which is also what the glasses use; software x265 took
+        # five minutes per run on a 2K 120 fps source, this takes well under one
+        _ff("-hwaccel", "videotoolbox", "-i", str(src), "-an", "-vf", f"scale={PROXY_W}:-2,fps={STREAM_FPS}",
+            "-c:v", "hevc_videotoolbox", "-b:v", f"{STREAM_KBPS}k", "-tag:v", "hvc1", str(mid))
         _ff("-i", str(mid), "-vf", f"fps={FPS}", "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", str(dst))
         mid.unlink()
     return dst
