@@ -86,11 +86,23 @@ def guide_page() -> FileResponse:
 
 
 @app.get("/api/procedure/{name}")
-def procedure(name: str) -> dict:
+def procedure(name: str, lang: str = "en") -> dict:
+    """The compiled procedure; with ?lang=xx, titles, instructions, whys and known mistakes are
+    replaced by the translation from compile/localize.py when one exists."""
     f = ROOT / "procedures" / name / "procedure.json"
     if not f.exists():
         raise HTTPException(404, "no such procedure")
-    return json.loads(f.read_text())
+    proc = json.loads(f.read_text())
+    lf = ROOT / "procedures" / name / "lang" / f"{lang}.json"
+    if lang != "en" and re.fullmatch(r"[a-z]{2,3}", lang) and lf.exists():
+        local = json.loads(lf.read_text())
+        by_id = {st["id"]: st for st in local["steps"]}
+        for st in proc["steps"]:
+            st.update({k: by_id[st["id"]][k] for k in ("title", "instruction", "why", "known_mistakes") if st["id"] in by_id})
+        proc["task"] = local["task"]
+        proc["lang"] = lang
+        proc["language"] = local.get("language", lang)
+    return proc
 
 
 @app.get("/api/mirror/{name}/{t}.jpg")
@@ -266,7 +278,7 @@ async def demo(session: str | None = None, speed: float = 1.0) -> dict:
 
 
 @app.websocket("/ws/device")
-async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = None) -> None:
+async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = None, lang: str = "en") -> None:
     global _session, _device
     await ws.accept()
     _stop_demo()
@@ -278,9 +290,9 @@ async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = N
     if _session:
         _session.close()
     emb = await loop.run_in_executor(None, embedder)
-    _session = session = Session(procedure, publish, emb, run=run)
+    _session = session = Session(procedure, publish, emb, run=run, lang=lang if re.fullmatch(r"[a-z]{2,3}", lang or "") else "en")
     _device = ws
-    await _broadcast({"type": "session", "procedure": procedure, "run": run, "status": "started", "mode": "live"})
+    await _broadcast({"type": "session", "procedure": procedure, "run": run, "status": "started", "mode": "live", "lang": session.lang})
     hevc = False
     try:
         while True:

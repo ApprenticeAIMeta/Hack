@@ -123,6 +123,8 @@ private fun GuideScreen(vm: GuideViewModel, onRegister: () -> Unit, onStart: () 
         modifier = Modifier.fillMaxWidth())
     OutlinedTextField(ui.run, vm::setRun, label = { Text("Run name, e.g. novice_corners_out") }, singleLine = true,
         modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(ui.lang, vm::setLang, label = { Text("Language (en, hi, es, ...)") }, singleLine = true,
+        modifier = Modifier.fillMaxWidth())
 
     Button(
         onClick = onStart,
@@ -137,7 +139,7 @@ private fun GuideScreen(vm: GuideViewModel, onRegister: () -> Unit, onStart: () 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun GuidingScreen(ui: GuideUi, onStop: () -> Unit) {
-  val url = ui.server.replaceFirst("ws", "http") + "/guide?procedure=" + ui.procedure
+  val url = ui.server.replaceFirst("ws", "http") + "/guide?procedure=" + ui.procedure + "&lang=" + ui.lang
   Column(Modifier.fillMaxSize().background(Color(0xFFD5D9DC)).systemBarsPadding()) {
     AndroidView(
         factory = { context ->

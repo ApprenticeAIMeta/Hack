@@ -102,7 +102,7 @@ function Guide() {
           <div className="absolute inset-0 flex flex-col gap-3 p-3 pt-[max(.75rem,env(safe-area-inset-top))]">
             <Glass className="p-4">
               <div className="flex items-center gap-3">
-                <span className="font-mono text-xs tracking-wider text-cyan-200">STEP {pad(step + 1)}<span className="text-white/40">/{pad(proc.steps.length)}</span></span>
+                <span className="font-mono text-xs tracking-wider text-cyan-200">STEP {pad(step + 1)}<span className="text-white/40">/{pad(proc.steps.length)}</span>{proc.language && <span className="ml-2 text-white/40">· {proc.language.toUpperCase()}</span>}</span>
                 <Segments n={proc.steps.length} step={step} finished={finished} className="flex-1" />
               </div>
               <AnimatePresence mode="popLayout" initial={false}>

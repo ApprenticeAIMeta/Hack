@@ -78,10 +78,14 @@ class Session:
     spent_usd = 0.0     # closed sessions, so a restarted stream cannot walk past the cap
 
     def __init__(self, procedure: str, publish: Callable[[dict], None], embedder: Embedder,
-                 client: MetaClient | None = None, run: str | None = None, record: bool = True):
+                 client: MetaClient | None = None, run: str | None = None, record: bool = True, lang: str = "en"):
         self.name = procedure
         self.dir = ROOT / "procedures" / procedure
         self.proc = json.loads((self.dir / "procedure.json").read_text())
+        # The novice's language: translated lines and MMS voice from compile/localize.py, when present
+        self.lang = lang if (self.dir / "lang" / f"{lang}.json").exists() else "en"
+        self.local = json.loads((self.dir / "lang" / f"{lang}.json").read_text()) if self.lang != "en" else None
+        self._local_steps = {st["id"]: st for st in self.local["steps"]} if self.local else {}
         self.model = ProgressModel.load(self.dir / "progress.npz")
         self.expert = self.model.runs[-1]
         self.client = client or MetaClient()
@@ -409,16 +413,29 @@ class Session:
 
     def _cloned(self, name: str) -> str | None:
         """A line pre-rendered in the expert's own cloned voice (procedures/<name>/voice/<name>.wav),
-        made ahead of time because cloning takes minutes per line on the laptop."""
+        made ahead of time because cloning takes minutes per line on the laptop. English only."""
+        if self.lang != "en":
+            return None
         f = self.dir / "voice" / f"{name}.wav"
         return f"/procedures/{self.name}/voice/{name}.wav" if f.exists() else None
 
+    def _localized(self, name: str) -> str | None:
+        """The same line in the novice's language (compile/localize.py renders clips/<lang>/)."""
+        if self.lang == "en":
+            return None
+        f = self.dir / "clips" / self.lang / f"{name}.wav"
+        return f"/procedures/{self.name}/clips/{self.lang}/{name}.wav" if f.exists() else None
+
     def _say_step(self, k: int) -> dict | None:
-        """The step's instruction, in the expert's cloned voice when available, else the synthetic one;
-        the expert's own recorded line is the caption."""
+        """The step's instruction: in the novice's language if localized, else the expert's cloned
+        voice, else the synthetic one. The caption is the expert's recorded line (translated when
+        localized)."""
         st = self.proc["steps"][k]
         caption = st["voice"][0]["text"] if st["voice"] else st["instruction"]
-        url = self._cloned(f"{st['id']}_say") or (f"/procedures/{self.name}/{st['say']['file']}" if st.get("say") else None)
+        if self.local:
+            caption = self._local_steps[st["id"]]["instruction"]
+        url = (self._localized(f"{st['id']}_say") or self._cloned(f"{st['id']}_say")
+               or (f"/procedures/{self.name}/{st['say']['file']}" if st.get("say") else None))
         if url:
             return {"url": url, "text": caption}
         return self._clip(st["voice"][0]) if st["voice"] else None
@@ -434,14 +451,17 @@ class Session:
             n = len(words & set(re.findall(r"[a-z]+", m.lower())) - {"the", "a", "of", "to", "not", "and"})
             if n > best_n:
                 best, best_n = j, n
-        url = (self._cloned(f"{st['id']}_warn{best + 1}") if best is not None and best_n >= 2 else None) or self._cloned("generic_warn")
-        if url:
-            return {"url": url, "text": advice or what}
         # Synthesis takes about a second and would hold the tick thread, so warnings use lines
         # rendered at session start: the matching known mistake, else the generic one
         key = f"{st['id']}_warn{best + 1}" if best is not None and best_n >= 2 else "generic_warn"
+        text = advice or what
+        if self.local and best is not None and best_n >= 2:
+            text = self._local_steps[st["id"]]["known_mistakes"][best]
+        url = self._localized(key) or self._cloned(key) or (self._localized("generic_warn") if self.local else None)
+        if url:
+            return {"url": url, "text": text}
         i = self._spoken_ids.get(key) or self._spoken_ids.get("generic_warn")
-        return {"url": f"/api/spoken/{i}.wav" if i else None, "text": advice or what}
+        return {"url": f"/api/spoken/{i}.wav" if i else None, "text": text}
 
     def _prerender(self) -> None:
         """MMS-TTS lines for every known mistake plus a generic Stop, made while the first frames

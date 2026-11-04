@@ -46,6 +46,7 @@ data class GuideUi(
     val hasGlasses: Boolean = false,
     val server: String = BuildConfig.DEFAULT_SERVER,
     val procedure: String = "airplane",
+    val lang: String = "en",
     val run: String = "",
     val running: Boolean = false,
     val status: String = "Pair the glasses to begin",
@@ -82,6 +83,8 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
   fun setServer(s: String) = _ui.update { it.copy(server = s.trim()) }
 
   fun setProcedure(p: String) = _ui.update { it.copy(procedure = p.trim()) }
+
+  fun setLang(l: String) = _ui.update { it.copy(lang = l.trim().lowercase()) }
 
   fun setRun(r: String) = _ui.update { it.copy(run = r) }
 
@@ -150,7 +153,7 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
     val u = _ui.value
     // The server records every session under this run name (out/sessions/<time>_<run>)
     val run = java.net.URLEncoder.encode(u.run.trim().ifEmpty { "run" }, "UTF-8")
-    val req = Request.Builder().url("${u.server}/ws/device?procedure=${u.procedure}&run=$run").build()
+    val req = Request.Builder().url("${u.server}/ws/device?procedure=${u.procedure}&run=$run&lang=${u.lang}").build()
     socket = http.newWebSocket(req, object : WebSocketListener() {
       override fun onMessage(webSocket: WebSocket, text: String) {
         val m = JSONObject(text)

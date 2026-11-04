@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 
 export const PROCEDURE = new URLSearchParams(location.search).get('procedure') || 'airplane'
+export const LANG = new URLSearchParams(location.search).get('lang') || 'en'
 
-/** The compiled procedure: steps, reference frames and the expert's voice clips. */
+/** The compiled procedure: steps, reference frames and the expert's voice clips, in LANG when localized. */
 export function useProcedure(name = PROCEDURE) {
   const [proc, setProc] = useState(null)
   useEffect(() => {
-    fetch(`/api/procedure/${name}`).then(r => r.json()).then(setProc).catch(() => {})
+    fetch(`/api/procedure/${name}?lang=${encodeURIComponent(LANG)}`).then(r => r.json()).then(setProc).catch(() => {})
   }, [name])
   return proc
 }
