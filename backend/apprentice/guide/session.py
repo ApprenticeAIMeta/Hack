@@ -317,8 +317,15 @@ class Session:
         with ThreadPoolExecutor(2) as ex:
             wp, hands = ex.map(lambda p: self._sam(frame, p), [self.proc["workpiece"], "hand"])
         touched = [r for r in wp if any(_touches(r[:4], h[:4]) for h in hands)]
-        if not touched:      # nothing in the hands: no tick beats a tick on the wrong object
-            return None
+        if not touched:
+            # Hands off the work is exactly when it should be judged (quick run, Nov 3: 0 of 20 ticks
+            # found the paper once the hands came off, so no check ran). Keep following the paper
+            # near the last box, else take the most confident match; a hand on something else does
+            # not count as touching.
+            near = [r for r in wp if self.box is not None and _plausible(self.box, r[:4], min_iou=0.1)]
+            touched = near or [max(wp, key=lambda r: r[4])] if wp else []
+            if not touched:
+                return None
 
         def score(r):
             area = (r[2] - r[0]) * (r[3] - r[1])
