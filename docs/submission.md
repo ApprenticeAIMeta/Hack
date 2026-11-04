@@ -57,17 +57,21 @@ and Framer Motion. Every session is recorded and can be replayed on the dashboar
 call and its reason.
 
 ## Measured
-- Live runs on Nov 3: all seven steps of the paper airplane guided end to end, including the throw
-  (catch5, 3 min). Checks answer in a median 6 s after a set of timing fixes (from 10 to 15 s).
+- Six live runs on Nov 3 (docs/eval.md). catch5 guided all seven steps of the paper airplane end to
+  end, including the throw, finishing at 182 s of a 271 s session.
+- A Muse Spark step check takes 3.5 to 5 s (median per run). In the live runs a check took 10 to
+  11 s from being asked to being answered, mostly waiting for a still from the glasses; after
+  moving timed checks to the stream frame, the same footage replayed answered in a median 6 s.
 - Voice Transcribe heard a spoken question word for word in 1.1 to 1.4 s; the spoken answer arrives
   about 7 s after the button is released.
 - Hindi: 19 lines translated and voiced in about a minute.
-- Cost: about $0.75 to $1.30 per guided run.
+- Cost: $0.69 to $1.29 per guided run.
 
 ## What does not work yet (stated plainly)
 Catching a mistake automatically is not reliable. On planted mistakes (a corner short of the
 crease, one wing folded) Spark did not flag them on real stills; on hands-off photos it flagged one
-once. Step tracking works; judging a fold's precise geometry from a photo does not, yet. The next
+once. No planted mistake produced a warning in any live run. Step tracking works; judging a
+fold's precise geometry from a photo does not, yet. The next
 step is measuring the work's outline from SAM's mask instead of asking a language model about it.
 
 ## Challenges
@@ -84,10 +88,11 @@ experimental Inputs); an expert review queue for disputed checks; the same pipel
 (thermostat wiring) with a working technician.
 
 ## Built during the hackathon
-Everything in the repository was written from Oct 27, 2026. See BUILT_DURING_HACKATHON.md.
+Everything in the repository was written from Oct 27, 2026, by one person with Claude Code, from a
+plan drafted at kickoff. See BUILT_DURING_HACKATHON.md for provenance and commit gaps.
 
 ## Disclosures
 - Voice: the demo guide speaks in a cloned voice of the expert (open-source Chatterbox, MIT), made
   locally from 30 s of the expert's own recording with their consent; Meta's MMS-TTS is the
-  default. No voice audio leaves the laptop.
+  default. The clone runs on the laptop; the rendered lines are in the repository.
 - The progress model uses DINOv2 (Meta, open weights); MMS-TTS is Meta, open weights.

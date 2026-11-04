@@ -1,53 +1,48 @@
 # The 3-minute video
 
-Shot list and script for the submission video. Everything shown is real: a live run, recorded
-by the system itself, with the dashboard screen-recorded while a phone films the person. Any
-section that is sped up carries a "4x" label on screen. The catch segment is one uncut take with
-the clock visible.
+Shot list and script for the submission video. Everything shown is real: live runs recorded by
+the system itself, with the dashboard screen-recorded while a phone films the person. Sped-up
+sections carry a "4x" label; dashboard replays carry a "replay" label.
 
 Target length 2:50. Due Nov 4, 9 PM ET; upload by 5 PM.
+
+The climax is ask-the-expert, because it works live every time. Mistake catching gets one honest
+slide, not a staged moment.
 
 ## Beats
 
 | Time | What is on screen | Voice-over / sound | Source |
 |---|---|---|---|
-| 0:00-0:12 | Black. One line of white text: "Every expert retires with what no manual records." Cut to the glasses on the desk. | Silence, then one quiet tone. | Title card, phone shot |
-| 0:12-0:30 | Devansh wearing the glasses, folding, narrating as the expert: "...corners meet right on the center line, or the nose comes out crooked." The glasses' LED is visible. | Live sound. | Phone, wide, from the expert recording session (re-film 20 s of it tomorrow) |
-| 0:30-0:55 | The compile. Terminal: `build ... --name airplane`. Transcript lines appear, then the step list with titles, done-checks and known mistakes. Label each as it appears: "Muse Voice Transcribe", "Muse Spark". Then the six reference photos tile in: "SAM 3.1 crops the work". | "One recording. Transcribe times the words. Spark turns the video and the words into six steps, what done looks like, and the mistakes the expert warned about." | Screen recording of a real compile (cached, 70 s, sped to 25 s with a 3x label) |
-| 0:55-1:05 | The phone propped on the desk, the step 1 screen; the glasses on a second person (the novice). | "A beginner puts the glasses on. The phone shows what the expert's work looked like at the end of each step. The expert's voice says what to do." | Phone shot |
-| 1:05-1:40 | Split: dashboard screen recording (left), phone filming the novice (right). Steps 1-3 go by. Green check flashes, Spark log rows appear, the progress ring moves. Sped to 4x with a label; the clock on the dashboard stays visible. | "SAM tracks the sheet. DINOv2 scores progress every second. Muse Spark checks a still from the glasses: which step is this, and is anything wrong?" | Dashboard capture + phone, from the `demo1` run |
-| 1:40-2:15 | **The catch. One uncut take, 1x.** Novice folds a corner short of the crease, hands off. Clock visible. The dashboard's edges pulse amber, "STOP" slides in, the phone turns amber: "corners not meeting at center". The expert's voice. Novice unfolds, fixes it, taps Got it, the step advances. | Natural sound, no music. | Dashboard capture + phone, same run |
-| 2:15-2:30 | The novice throws the plane. It flies. | Natural sound. | Phone, wide |
-| 2:30-2:45 | The report card on the dashboard: time per step vs the expert, checks, stills, warnings, cost. Then one slide of real numbers from docs/eval.md, including the misses. | "Every number here is from this run. Here is what it gets wrong today." | Screen + slide |
-| 2:45-2:55 | Devansh to camera, one sentence: what this is for. | | Phone |
-| 2:55-3:00 | Card: ApprenticeAI. "Recorded once." Meta models used, listed. Repo link. | | Card |
+| 0:00-0:10 | Black. One line: "Every expert retires with what no manual records." Cut to the glasses on the bench. | Silence, then one tone. | Title card |
+| 0:10-0:28 | The expert (Chibuoke on the thermostat if the HVAC run lands; otherwise the airplane expert run) working and narrating. Glasses LED visible. | Live sound. | Phone, wide |
+| 0:28-0:50 | The compile: `tools/new_procedure.sh` in the terminal, the transcript, then the step list with done-checks and known mistakes; reference photos tile in. Label each model as it runs. | "One recording. Voice Transcribe times the words, Muse Spark writes the steps and the mistakes the expert warned about, SAM picks the photo of each finished step." | Screen recording, sped with a label |
+| 0:50-1:00 | Novice puts on the glasses; phone beside the work shows step 1 and the expert's photo. The cloned expert voice gives the first instruction. | "A beginner puts the glasses on and hears the expert." | Phone |
+| 1:00-1:35 | Split: dashboard left, phone filming the novice right. Novice takes hands off, the hands-off chip lights, Spark's answer appears with its reason, the step advances. Two or three steps, 4x between them, 1x on one advance. | "When the hands come off the work, SAM sees it, Muse Spark compares the photo with the expert's, and the guide moves on." | Live run + dashboard |
+| 1:35-2:05 | **Ask the expert, 1x, uncut.** Novice holds the button: "which way does this fold go?" The transcript appears, then the answer is spoken, grounded in the current photo. Clock visible. | Natural sound. | Live run |
+| 2:05-2:15 | The same guide switched to Hindi: one instruction on screen and spoken. | "Recorded once in English. Guided in any language." | Phone |
+| 2:15-2:25 | The last step done (the throw, or the thermostat cover on). | Natural sound. | Phone, wide |
+| 2:25-2:40 | Report card: time per step against the expert, checks, photos, cost. Then one slide: "What it does not do yet: catching a wrong fold automatically. 0 of 4 planted mistakes caught. Next: measuring the work's outline from SAM's mask." | "Every number is from this run, including what it gets wrong." | Screen + slide |
+| 2:40-2:52 | Builder to camera, one sentence: who this is for. | | Phone |
+| 2:52-3:00 | Card: ApprenticeAI. Meta models used, listed. Repo link. Chatterbox voice disclosed. | | Card |
 
 ## What must be true before filming
-- The `demo1` run completes and the catch fires on the planted mistake. If the catch does not
-  fire reliably, the 1:40 beat becomes: novice taps "Check my step", the phone answers "Not yet:
-  corners don't reach the crease", novice fixes it. Say on screen that the check was asked for.
-- The novice is someone other than the expert if at all possible (a friend, 10 minutes). If not,
-  say so on screen.
-- Glasses charged; phone at 100%; laptop plugged in; dashboard full screen at 1440x900 for a
-  clean capture (QuickTime screen recording, no cursor).
-- Consent from anyone filmed; LED visible on the glasses in every shot that has them.
+- A clean run of the procedure being filmed, completing every step.
+- Consent from anyone filmed, and written consent from the expert for the cloned voice. LED visible
+  in every shot with the glasses.
+- Oct 22 footage is not used anywhere.
+- Glasses and phone charged, laptop plugged in, dashboard full screen at 1440x900, QuickTime
+  screen recording without the cursor.
 
-## Filming order (about 90 minutes)
-1. Dashboard screen recording running, phone on a tripod: the full guided run with the planted
-   mistake at step 3 only. Two takes.
-2. The throw, three takes.
-3. Twenty seconds of the expert narrating a fold (the 0:12 beat).
-4. The to-camera sentence, three takes.
-5. Phone close-ups: the step screen, the Stop screen, the report card.
+## Fallback
+If the live HVAC run does not complete, the airplane is the hero: `demo/catch5` completed all
+seven steps live, and a new airplane run with the novice filmed covers 1:00-2:25.
 
 ## Edit
-- Timeline 1080p30. The dashboard capture is the main track; the phone footage is the inset.
-- Captions burned in. Model names on screen when a model does something.
-- Labels: "4x" during sped-up sections; "replay" if any shot is a dashboard replay rather than
-  the live run.
-- Music under 0:30-1:40 and 2:30-3:00 only, cut dead at 1:40.
-- Export H.264 1080p, about 20 Mbps, AAC. Check on a phone before uploading.
+- 1080p30. Dashboard capture is the main track; phone footage is the inset.
+- Captions burned in; model names on screen when a model does something.
+- Music under 0:28-1:00 and 2:40-3:00 only, none under the ask.
+- Export H.264 1080p, about 20 Mbps, AAC. Watch it on a phone before uploading.
 
-## The X post (Most Viral award)
-Video: the catch beat alone, vertical, 25 s, with captions. Text: one sentence, the repo link,
-the hashtag from Discord, and "built with Muse Spark, SAM 3.1, Voice Transcribe on Ray-Ban Meta".
+## The X post
+The ask beat alone, vertical, 25 s, captioned. One sentence, the repo link, the event hashtag, and
+"built with Muse Spark, SAM 3.1 and Voice Transcribe on Ray-Ban Meta".
