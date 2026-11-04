@@ -159,7 +159,7 @@ function Dashboard() {
     }
   })
 
-  useEffect(() => { if (new URLSearchParams(location.search).has('demo')) fetch('/api/demo', { method: 'POST' }) }, [])
+  useEffect(() => { if (new URLSearchParams(location.search).has('demo')) fetch('/api/demo?speed=2', { method: 'POST' }) }, [])
   const finishedRun = proc && doneAt[proc.steps.length - 1] != null
   useEffect(() => {
     if (finishedRun && !report) setReport(summarize(proc, doneAt, checks.filter(c => !c.warnRow), warnEvents, cost))

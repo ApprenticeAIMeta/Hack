@@ -32,6 +32,7 @@ function Guide() {
   const [finished, setFinished] = useState(false)
   const [verdict, setVerdict] = useState(null)   // answer to a check the novice asked for
   const [picking, setPicking] = useState(false)  // the step list is open
+  const [replaying, setReplaying] = useState(false)  // a recorded run: checks and step picks would be refused
   const [checking, setChecking] = useState(false)
   const [doneAt, setDoneAt] = useState({})
   const [checks, setChecks] = useState([])
@@ -59,6 +60,7 @@ function Guide() {
       img.src = 'data:image/jpeg;base64,' + m.jpeg
     } else if (m.type === 'session') {
       followSession(m)
+      setReplaying(m.status === 'started' && m.mode === 'replay')
       if (m.status === 'started') {
         stepRef.current = null; setStep(null); setLost(0); setDoneAt({}); setChecks([]); setWarns([]); setCost(0); setWarn(null); setSaid(null); setFinished(false); setWait('Starting')
       } else setWait('Session ended')
@@ -105,7 +107,7 @@ function Guide() {
 
         {s && (
           <div className="absolute inset-0 flex flex-col gap-3 p-3 pt-[max(.75rem,env(safe-area-inset-top))]">
-            <Glass className="p-4" onClick={() => setPicking(true)} role="button" aria-label="Choose a step">
+            <Glass className="p-4" onClick={() => !replaying && setPicking(true)} role="button" aria-label="Choose a step">
               <div className="flex items-center gap-3">
                 <span className="font-mono text-xs tracking-wider text-cyan-200">STEP {pad(step + 1)}<span className="text-white/40">/{pad(proc.steps.length)}</span>{proc.language && <span className="ml-2 text-white/40">· {proc.language.toUpperCase()}</span>}</span>
                 <Segments n={proc.steps.length} step={step} finished={finished} className="flex-1" />
@@ -143,10 +145,14 @@ function Guide() {
               )}
             </AnimatePresence>
 
-            <motion.button whileTap={{ scale: 0.97 }} onClick={askCheck} disabled={checking || finished}
-              className={`rounded-2xl py-4 text-xl font-semibold transition ${checking ? 'bg-white/10 text-white/50' : 'bg-cyan-300 text-black'} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200`}>
-              {checking ? 'Checking your work…' : 'Check my step'}
-            </motion.button>
+            {replaying ? (
+              <p className="rounded-2xl border border-white/10 py-4 text-center font-mono text-sm tracking-wider text-white/50">REPLAY OF A RECORDED RUN</p>
+            ) : (
+              <motion.button whileTap={{ scale: 0.97 }} onClick={askCheck} disabled={checking || finished}
+                className={`rounded-2xl py-4 text-xl font-semibold transition ${checking ? 'bg-white/10 text-white/50' : 'bg-cyan-300 text-black'} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200`}>
+                {checking ? 'Checking your work…' : 'Check my step'}
+              </motion.button>
+            )}
 
             <AnimatePresence mode="wait">
               {said && (
