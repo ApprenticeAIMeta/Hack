@@ -2,7 +2,7 @@ import { StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AnimatePresence, MotionConfig, motion, useSpring, useTransform } from 'framer-motion'
 import './index.css'
-import { PROCEDURE, fmt, useProcedure, useSocket } from './shared.js'
+import { fmt, useSessionProcedure, useSocket } from './shared.js'
 import { Brackets, Glass, LiveDot, Segments, Waves, placeBox } from './hud.jsx'
 import { ReportCard, summarize } from './report.jsx'
 
@@ -59,7 +59,7 @@ function Telemetry({ on, model, what, value }) {
 }
 
 function Dashboard() {
-  const proc = useProcedure()
+  const [proc, procName, followSession] = useSessionProcedure()
   const [novice, setNovice] = useState(null)
   const [backdrop, setBackdrop] = useState(null)
   const backdropAt = useRef(0)
@@ -122,6 +122,7 @@ function Dashboard() {
     }
     else if (m.type === 'capped') setStatus({ text: `Stopped at the $${m.cap_usd} limit`, live: false })
     else if (m.type === 'session') {
+      followSession(m)
       const started = m.status === 'started', replay = m.mode === 'replay'
       setStatus({ text: !started ? (replay ? 'Replay ended' : 'Session ended') : replay ? `Replay · ${m.run ?? m.session ?? ''}${m.speed && m.speed !== 1 ? ` · ${m.speed}x` : ''}` : 'Live', live: started && !replay, replay: started && replay })
       if (started) { haveFeed.current = false; setDoneAt({}); setWarnEvents([]); setReport(null); setChecks([]); setCurve([]); setWarns([]); setDone(new Set()); setStep(0); setSaid(null); setWarn(null) }
@@ -348,7 +349,7 @@ function Dashboard() {
                 <span className="truncate pl-2 text-white/40">{mirrorStep?.title}</span>
               </div>
               <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-black/40">
-                {mirrorT != null && <img src={`/api/mirror/${PROCEDURE}/${mirrorT.toFixed(1)}.jpg`} alt="The expert at the same point in the task" className="h-full w-full object-contain" />}
+                {mirrorT != null && <img src={`/api/mirror/${procName}/${mirrorT.toFixed(1)}.jpg`} alt="The expert at the same point in the task" className="h-full w-full object-contain" />}
               </div>
             </Glass>
             <Glass className="flex items-center gap-4 p-4">

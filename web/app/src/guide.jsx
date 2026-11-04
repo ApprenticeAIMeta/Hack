@@ -2,7 +2,7 @@ import { StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import './index.css'
-import { drawCrop, refUrl, useProcedure, useSocket } from './shared.js'
+import { drawCrop, refUrl, useSessionProcedure, useSocket } from './shared.js'
 import { Brackets, Glass, LiveDot, Segments, Waves } from './hud.jsx'
 import { ReportCard, summarize } from './report.jsx'
 
@@ -19,7 +19,7 @@ function Live({ frame, box, frameSize }) {
 }
 
 function Guide() {
-  const proc = useProcedure()
+  const [proc, procName, followSession] = useSessionProcedure()
   const [step, setStep] = useState(null)
   const [frame, setFrame] = useState(null)
   const [box, setBox] = useState(null)
@@ -58,6 +58,7 @@ function Guide() {
       img.onload = () => setFrame(img)
       img.src = 'data:image/jpeg;base64,' + m.jpeg
     } else if (m.type === 'session') {
+      followSession(m)
       if (m.status === 'started') {
         stepRef.current = null; setStep(null); setLost(0); setDoneAt({}); setChecks([]); setWarns([]); setCost(0); setWarn(null); setSaid(null); setFinished(false); setWait('Starting')
       } else setWait('Session ended')

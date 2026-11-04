@@ -4,12 +4,23 @@ export const PROCEDURE = new URLSearchParams(location.search).get('procedure') |
 export const LANG = new URLSearchParams(location.search).get('lang') || 'en'
 
 /** The compiled procedure: steps, reference frames and the expert's voice clips, in LANG when localized. */
-export function useProcedure(name = PROCEDURE) {
+export function useProcedure(name = PROCEDURE, lang = LANG) {
   const [proc, setProc] = useState(null)
   useEffect(() => {
-    fetch(`/api/procedure/${name}?lang=${encodeURIComponent(LANG)}`).then(r => r.json()).then(setProc).catch(() => {})
-  }, [name])
+    fetch(`/api/procedure/${name}?lang=${encodeURIComponent(lang)}`).then(r => r.json()).then(setProc).catch(() => {})
+  }, [name, lang])
   return proc
+}
+
+/** Which procedure and language to show: the URL's until a session starts, then the session's own,
+ * so a plain / follows whatever the glasses (or a replay) are running. */
+export function useSessionProcedure() {
+  const [which, setWhich] = useState({ name: PROCEDURE, lang: LANG })
+  const follow = m => {
+    if (m.type === 'session' && m.status === 'started' && m.procedure)
+      setWhich(w => ({ name: m.procedure, lang: m.lang || (m.mode === 'replay' ? w.lang : 'en') }))
+  }
+  return [useProcedure(which.name, which.lang), which.name, follow]
 }
 
 /** One server socket (/ws/guide or /ws/dashboard), reconnecting if the server restarts. */
