@@ -27,6 +27,7 @@ import java.io.ByteArrayOutputStream
 import java.util.ArrayDeque
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -71,7 +72,7 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
   private var camera: Camera? = null
   private var stream: com.meta.wearable.dat.camera.Stream? = null
   private val clips = ArrayDeque<String>()
-  private var player: MediaPlayer? = null
+  @Volatile private var player: MediaPlayer? = null
 
   fun onSdkReady() {
     viewModelScope.launch { Wearables.registrationState.collect { r -> _ui.update { it.copy(registration = r) } } }
@@ -173,6 +174,10 @@ class GuideViewModel(app: Application) : AndroidViewModel(app) {
     val s = stream
     viewModelScope.launch(Dispatchers.Default) {
       val answer = JSONObject().put("type", "photo").put("id", id)
+      // The glasses play a shutter sound on capture, which talks over the guidance; hold the still
+      // until the current line has finished (the server waits up to 8 s before using a stream frame)
+      var waited = 0
+      while (player != null && waited < 6000) { delay(100); waited += 100 }
       s?.capturePhoto()
           ?.onSuccess { photo -> jpegOf(photo)?.let { answer.put("jpeg", Base64.encodeToString(it, Base64.NO_WRAP)) } }
           ?.onFailure { e, _ -> Log.w(TAG, "capture: $e") }

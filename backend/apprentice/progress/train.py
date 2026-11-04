@@ -67,19 +67,44 @@ def run_bank(name: str, video: Path, workpiece: str, span: tuple[float, float] |
     return X, np.clip((tt - a) / (b - a), 0, 1), tt
 
 
+def _covered(box: list, hands: list) -> float:
+    """Fraction of the workpiece box under hand boxes (upper bound: overlaps are summed)."""
+    x1, y1, x2, y2 = box
+    area = max(1.0, (x2 - x1) * (y2 - y1))
+    cov = 0.0
+    for hx1, hy1, hx2, hy2 in hands:
+        cov += max(0, min(x2, hx2) - max(x1, hx1)) * max(0, min(y2, hy2) - max(y1, hy1))
+    return min(1.0, cov / area)
+
+
+def pick_reference(d: dict, t_start: float, t_end: float, tail: float = 0.35) -> int | None:
+    """The 2 fps frame that best shows the step's result: in the last part of the step, workpiece
+    visible, hands off it as far as possible, then the sharpest. The compile's own pick prefers
+    calm frames, which on a real recording are often hands resting on the work."""
+    for lo in (t_end - tail * (t_end - t_start), t_start):
+        cand = [i for i, t in enumerate(d["t"]) if lo <= t <= t_end and d["boxes"][i]]
+        if not cand:
+            continue
+        cov = {i: _covered(d["boxes"][i], d["hands"][i]) for i in cand}
+        best = min(cov.values())
+        clear = [i for i in cand if cov[i] <= best + 0.05]
+        return max(clear, key=lambda i: cv2.Laplacian(cv2.cvtColor(d["crops"][i], cv2.COLOR_BGR2GRAY), cv2.CV_64F).var())
+    return None
+
+
 def reference_crops(pdir: Path, proc: dict, video: Path, d: dict, out_w: int = 512, pad: float = 0.3) -> None:
-    """keyframes/step_XX_crop.jpg: each step's reference frame cropped to the workpiece, from the
-    full-resolution source, using the SAM box of the nearest 2 fps frame."""
+    """keyframes/step_XX.jpg and step_XX_crop.jpg: each step's reference frame, re-picked with the
+    hands off the work, from the full-resolution source, cropped with the SAM box."""
+    from apprentice.capture import media
     cap = cv2.VideoCapture(str(video))
     for s in proc["steps"]:
-        rf = s.get("reference_frame")
-        if not rf:
+        i = pick_reference(d, s["t_start"], s["t_end"])
+        if i is None:
             continue
-        i = int(round(rf["t"] * FPS))
-        near = [j for j in range(max(0, i - 2), min(len(d["boxes"]), i + 3)) if d["boxes"][j]]
-        if not near:
-            continue
-        box = d["boxes"][min(near, key=lambda j: abs(j - i))]
+        s["reference_frame"] = {"file": f"keyframes/{s['id']}.jpg", "t": round(d["t"][i], 2)}
+        rf = s["reference_frame"]
+        media.frame_at(video, rf["t"], pdir / rf["file"])
+        box = d["boxes"][i]
         cap.set(cv2.CAP_PROP_POS_MSEC, rf["t"] * 1000)
         ok, f = cap.read()
         if not ok:

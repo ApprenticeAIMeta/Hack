@@ -38,7 +38,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SMOOTH = 5
 REACQUIRE = 10
 PHOTO_MIN_GAP_S = 6.0   # each still freezes the stream for 2-3 s, so most ticks must not ask for one
-PHOTO_TIMEOUT_S = 5.0
+PHOTO_TIMEOUT_S = 8.0   # the phone holds a still until the voice line has finished
 SPEND_CAP_USD = float(os.environ.get("SPEND_CAP_USD", "10"))   # across all sessions of this server
 
 

@@ -38,7 +38,7 @@ class Config:
     done_conf: float = 0.6       # locate answers below this are ignored
     done_fast_conf: float = 0.85 # one locate answer this confident about a still moves on by one step
                                  # (on stream frames such answers were exact only 2 of 10 times: docs/stills-test.md)
-    fast_gate: float = 0.0       # a one-answer advance also needs progress within this of the step's end
+    fast_gate: float = 0.2       # a one-answer advance also needs progress within this of the step's end
     drop: float = 0.12           # regression: this far below the recent peak...
     drop_ticks: int = 3          # ...for this many ticks
     peak_window_s: float = 20.0
@@ -121,8 +121,10 @@ class Tracker:
         return any(p[1] == kind for p in self.pending)
 
     def _enter(self, t: float, k: int) -> None:
-        self.k, self.ahead, self.instructed, self.suspect, self.here = k, None, False, False, 0
+        self.k, self.ahead, self.suspect, self.here = k, None, False, 0
         self.last_ask["done"] = -1e9
+        self.instructed = True          # say the step as it begins; the novice should never wait for a check
+        self._emit(t, "instruct", k)
 
     # -- results -------------------------------------------------------------------------
 
@@ -148,7 +150,10 @@ class Tracker:
                 if n > self.k:
                     self.here = 0
                     manual = asked == self.manual_at   # hands clear, fresh still: the novice vouched for it
-                    fast = res.source == "photo" and res.confidence >= self.cfg.done_fast_conf and (
+                    # Stills answering two steps ahead have been one-step-ahead reads of work in progress
+                    # (guided1: "wings folded" while the plane was being folded in half), so one answer
+                    # may only move to the next step
+                    fast = res.source == "photo" and res.confidence >= self.cfg.done_fast_conf and n == self.k + 1 and (
                         manual or (p is not None and p >= self.ranges[self.k][1] - self.cfg.fast_gate))
                     if fast or self.ahead is not None:
                         target = self.k + 1   # one step at a time: answers jump around, so never skip ahead
@@ -164,7 +169,7 @@ class Tracker:
                 else:
                     self.ahead = None
                     self.here += 1
-                    if not self.instructed and self.here >= 2:   # two answers agree: tell the novice what to do
+                    if not self.instructed:
                         self.instructed = True
                         self._emit(arrival, "instruct", self.k)
             elif kind == "mistake":
@@ -179,6 +184,9 @@ class Tracker:
     # -- per frame -----------------------------------------------------------------------
 
     def tick(self, t: float, p: float | None, sim: float | None, frame: np.ndarray) -> None:
+        if not self.instructed:            # first frame: say step 1
+            self.instructed = True
+            self._emit(t, "instruct", self.k)
         self._deliver(t, p)
         if self.finished:
             return

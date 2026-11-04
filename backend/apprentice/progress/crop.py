@@ -140,4 +140,6 @@ def crops_for_run(video: Path, prompt: str, client: MetaClient, cache: Path) -> 
     frames, fps = read_frames(video)
     boxes = workpiece_boxes(tr, hands, len(frames))
     crops = [crop(f, b) if b else None for f, b in zip(frames, boxes)]
-    return {"t": [i / fps for i in range(len(frames))], "crops": crops, "boxes": boxes, "frames": frames}
+    hand_boxes = [[r[1:5] for r in hands["frames"].get(i, [])] for i in range(len(frames))]
+    return {"t": [i / fps for i in range(len(frames))], "crops": crops, "boxes": boxes, "frames": frames,
+            "hands": hand_boxes}
