@@ -44,12 +44,11 @@ PHOTO_TIMEOUT_S = 8.0   # the phone holds a still until the voice line has finis
 STILL_FRESH_S = 10.0    # a check asked soon after a still may judge the same still
 SAM_TIMEOUT = httpx.Timeout(6.0, connect=3.0)   # one slow SAM call must not stall the guide (17 s seen live)
 DASH_FPS, DASH_H = 8, 640   # dashboard frames: thinned and downscaled before the base64 fan-out
-# "Hands off" is the signal that a step is done: the paper's box holds still, the picture inside it
-# stops changing, and no hand is over it. Then a still is taken and judged, as if Check was tapped.
-SETTLE_IOU = 0.85           # box overlap between consecutive ticks
-SETTLE_DIFF = 7.0           # mean absolute change of the 64x64 grey crop, 0-255
-SETTLE_TICKS = 2            # consecutive still ticks (about 2 s at the measured tick rate)
-SETTLE_COOLDOWN_S = 10.0    # between hands-off checks while the work has not moved
+# "Hands off" is the signal that a step is done: no hand over the paper on two looks in a row.
+# Then a still is taken and judged, as if Check was tapped.
+SETTLE_HAND_S = 1.5         # how often SAM looks for hands while the paper is in view
+SETTLE_TICKS = 2            # clear looks in a row (about 1.5-3 s)
+SETTLE_COOLDOWN_S = 8.0     # between hands-off checks until a hand touches the paper again
 SPEND_CAP_USD = float(os.environ.get("SPEND_CAP_USD", "10"))   # across all sessions of this server
 
 
@@ -412,7 +411,7 @@ class Session:
                       "tick_ms": round(1000 * (time.time() - t_start)), "cost_usd": round(self.cost, 4),
                       "frames_in": self.frames_in, "frames_gated": self.frames_gated,
                       "photos": self.photos_used, "photos_failed": self.photos_failed, "sam_failures": self.sam_failures,
-                      "settle": {k: self._settle[k] for k in ("ticks", "blocked", "diff")},
+                      "settle": {"clear_looks": self._settle["ticks"], "blocked": self._settle["blocked"], "hands": self._settle["diff"]},
                       "timing_ms": {"sam": round(1000 * (t_sam - t_start)), "model": round(1000 * (t_model - t_sam)),
                                     "tracker": round(1000 * (time.time() - t_model))}})
 
@@ -547,24 +546,24 @@ class Session:
             self._cv.notify()
 
     def _watch_settle(self, t: float, frame: np.ndarray, box: tuple) -> None:
-        """Ask for a check when the work has been put down and left alone."""
+        """Ask for a check when no hand is on the work. The camera is on the novice's head, so the
+        picture never holds still (catch2: the frame changed by 10-50 grey levels between ticks
+        while the hands were off); whether a hand is over the paper is the signal instead. SAM looks
+        for hands every SETTLE_HAND_S; two clear looks in a row fire one check, and a hand coming
+        back re-arms it."""
         st = self._settle
-        g = cv2.cvtColor(cv2.resize(crop(frame, box), (64, 64), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2GRAY).astype(np.float32)
-        st["diff"] = round(float(np.abs(g - st["crop"]).mean()), 1) if st["crop"] is not None else None
-        still = (st["box"] is not None and _iou(st["box"], box) >= SETTLE_IOU and st["diff"] <= SETTLE_DIFF)
-        st["box"], st["crop"] = box, g
-        if not still:
-            st["ticks"], st["armed"] = 0, True     # it moved: the next pause counts again
-            return
-        st["ticks"] += 1
-        if (st["ticks"] < SETTLE_TICKS or not st["armed"] or t - st["fired"] < SETTLE_COOLDOWN_S
-                or t - st.get("hand_t", -1e9) < 2.5):  # one hand check every 2.5 s while hands rest on it
+        if t - st.get("hand_t", -1e9) < SETTLE_HAND_S:
             return
         st["hand_t"] = t
-        # A hand clearly on the paper blocks; one resting beside it, or a faint detection, does not
         hands = [h for h in self._sam(frame, "hand") if h[4] >= 0.6]
-        if any(_touches(box, h[:4], margin=0.0) for h in hands):
+        on_paper = any(_touches(box, h[:4], margin=0.0) for h in hands)
+        st["diff"] = len(hands)
+        if on_paper:
+            st["ticks"], st["armed"] = 0, True
             st["blocked"] += 1
+            return
+        st["ticks"] += 1
+        if st["ticks"] < SETTLE_TICKS or not st["armed"] or t - st["fired"] < SETTLE_COOLDOWN_S:
             return
         st["fired"], st["armed"] = t, False
         self.publish({"type": "settled", "t": round(t, 2), "step": self.tracker.k})

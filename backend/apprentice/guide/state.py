@@ -152,12 +152,14 @@ class Tracker:
                 n = res.completed
                 if n > self.k:
                     self.here = 0
-                    manual = asked == self.manual_at   # hands clear, fresh still: the novice vouched for it
-                    # Stills answering two steps ahead have been one-step-ahead reads of work in progress
-                    # (guided1: "wings folded" while the plane was being folded in half), so one answer
-                    # may only move to the next step
-                    fast = res.source == "photo" and res.confidence >= self.cfg.done_fast_conf and n == self.k + 1 and (
-                        manual or (p is not None and p >= self.ranges[self.k][1] - self.cfg.fast_gate))
+                    manual = asked == self.manual_at   # hands off or tapped: the novice signalled it is done
+                    # Any answer past the current step means at least this step is done. Answers that
+                    # read one step ahead are common (a plane being folded in half "has wings"), so the
+                    # advance is always to the next step only, never further. A still is trusted once;
+                    # a stream frame needs a second answer that also puts the novice past this step.
+                    # catch2: requiring exactly k+1 held step 5 from 210 s to 296 s.
+                    photo_ok = res.source == "photo" and res.confidence >= self.cfg.done_conf
+                    fast = photo_ok or (manual and res.confidence >= self.cfg.done_conf)
                     if fast or self.ahead is not None:
                         target = self.k + 1   # one step at a time: answers jump around, so never skip ahead
                         for j in range(self.k, target):
