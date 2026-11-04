@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/inter";
+@import "@fontsource/noto-sans-devanagari/500.css";
 
 /* Heads-up display: the camera feed is the screen, and everything else floats over it as glass. */
 @theme {
@@ -18,3 +20,13 @@ body { margin: 0; background: #030507; color: #fff; font-family: var(--font-sans
 }
 .glow-cyan { filter: drop-shadow(0 0 6px rgb(103 232 249 / .8)); }
 .glow-amber { filter: drop-shadow(0 0 8px rgb(251 191 36 / .9)); }
+
+/* The laptop dashboard (design handoff, Nov 4): flat cards, one cyan accent, Inter for text. */
+.dash { font-family: "Inter Variable", system-ui, sans-serif; background: #0C0D0F; color: #F2F3F5; }
+.dash .mono { font-family: "Geist Mono Variable", ui-monospace, monospace; }
+.dash [lang="hi"] { font-family: "Noto Sans Devanagari", "Inter Variable", sans-serif; font-weight: 500; }
+/* the current step's live ripple */
+.ripple { position: relative; width: 8px; height: 8px; border-radius: 50%; background: #7DD3F5; flex-shrink: 0; }
+.ripple::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid #7DD3F5; animation: ring 1.8s ease-out infinite; }
+@keyframes ring { 0% { transform: scale(1); opacity: .9 } 100% { transform: scale(3.2); opacity: 0 } }
+@media (prefers-reduced-motion: reduce) { .ripple::after { animation: none; } }

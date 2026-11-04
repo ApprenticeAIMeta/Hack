@@ -327,7 +327,8 @@ async def ask(request: Request, lang: str = "en") -> dict:
     out = await loop.run_in_executor(None, work)
     if out["answer"]:
         msg = {"type": "ask", "t": round(time.time() - _session.t0, 2), "step": out["step"],
-               "question": out["question"], "answer": out["answer"], "url": out["url"]}
+               "question": out["question"], "answer": out["answer"], "url": out["url"],
+               "asr_s": out.get("asr_s"), "latency_s": out.get("latency_s")}
         await _broadcast(msg)
         if _session.recorder:
             i = int(out["url"].rsplit("/", 1)[1].split(".")[0]) if out["url"] else None
