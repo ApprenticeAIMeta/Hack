@@ -42,6 +42,13 @@ total. A new procedure from an expert recording is one command: `backend/tools/n
 | SAM 3.1 | Tracks the workpiece in every stream frame, finds it in each photo, detects whether a hand is on it (the hands-off signal), and picks the expert's reference photos with the hands off |
 | MMS-TTS (Meta, open weights) | Speaks instructions, warnings and answers, in any of its 1,100+ languages |
 | DINOv2 (Meta, open weights) | Embeds workpiece crops for the progress model and the dashboard's "expert at the same point" view |
+| Omnilingual ASR (Meta, open weights, local) | Hears the novice's question on the laptop, in any of 1,600+ languages: first in non-English sessions, otherwise the fallback when Voice Transcribe fails (CTC 300M, about 7 s per question on an M2 CPU) |
+| Muse Spark Open (Meta, open weights, on Baseten) | Fallback for every Spark call when the Meta Model API is unreachable or erroring; labelled "Spark Open" on the dashboard (slower and less accurate: [docs/open-weights.md](docs/open-weights.md)) |
+
+Optional local speech recognition: Omnilingual ASR runs in its own environment because fairseq2
+pins torch 2.8 and NumPy 1 (`uv venv ~/.venvs/omni --python 3.11`, then install `omnilingual-asr`,
+`torchaudio==2.8.0`, `pyarrow<18` and `soundfile`, and link `libsndfile.1.dylib` to soundfile's bundled
+copy; see `backend/apprentice/models/omni_worker.py`). Without it, questions use Voice Transcribe only.
 
 Voice: the bundled demo speaks in an open-source voice clone of the expert (Chatterbox, MIT),
 rendered on the laptop from 30 s of the expert's own narration, with their consent; MMS-TTS is the

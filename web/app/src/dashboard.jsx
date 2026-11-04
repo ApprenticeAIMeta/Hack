@@ -119,6 +119,7 @@ function Dashboard() {
   const [lit, setLit] = useState({})
   const [timing, setTiming] = useState({})
   const [sound, setSound] = useState(false)
+  const [asrModel, setAsrModel] = useState(null)
   const [checks, setChecks] = useState([])
   const [picker, setPicker] = useState(null)
   const [speed, setSpeed] = useState(2)
@@ -149,9 +150,10 @@ function Dashboard() {
   useSocket('/ws/dashboard', m => {
     if (m.type === 'ask') {
       setSaid({ text: m.answer, t: m.t, q: m.question, clip: m.clip?.text })
-      setChecks(c => [{ t: m.t, step: m.step, kind: 'ask', askRow: true, question: m.question, answer: m.answer, clip: m.clip }, ...c].slice(0, 60))
+      setChecks(c => [{ t: m.t, step: m.step, kind: 'ask', askRow: true, question: m.question, answer: m.answer, clip: m.clip, model: m.model, latency_s: m.latency_s }, ...c].slice(0, 60))
       flash('voice', 5000); flash('spark', 1500); flash('asr', 2500)
       setTiming(t => ({ ...t, ...(m.asr_s != null && { asr: m.asr_s }), ...(m.latency_s != null && { spark: m.latency_s }) }))
+      if (m.asr_model) setAsrModel(m.asr_model)
       if (soundRef.current && m.url) new Audio(m.url).play().catch(() => {})
     } else if (m.type === 'frame') {
       const src = 'data:image/jpeg;base64,' + m.jpeg
@@ -215,6 +217,7 @@ function Dashboard() {
   const span = proc ? Math.max(proc.steps.at(-1).t_end - proc.steps[0].t_start, now, 30) : 60
   const allDone = proc && done.size === proc.steps.length
   const nChecks = checks.filter(c => !c.warnRow && !c.askRow).length
+  const fallback = checks[0]?.model?.includes('open')
   const nStills = checks.filter(c => c.source === 'photo').length
 
   return (
@@ -310,8 +313,8 @@ function Dashboard() {
               <Label className="mb-1.5 px-1">META MODELS · LIVE</Label>
               <Model on={lit.sam} name="SAM 3.1" what="tracks the workpiece" value={timing.sam ? `${(timing.sam / 1000).toFixed(1)}s` : null} />
               <Model on={lit.dino} name="DINOv2" what="places the work within the step" value={timing.model != null ? `${timing.model}ms` : null} />
-              <Model on={lit.spark} name="Muse Spark" what="judges the step, answers questions" value={timing.spark ? `${timing.spark.toFixed(1)}s` : null} />
-              <Model on={lit.asr} name="Muse Voice Transcribe" what="hears the novice's question" value={timing.asr ? `${timing.asr.toFixed(1)}s` : null} />
+              <Model on={lit.spark} name={fallback ? 'Muse Spark Open' : 'Muse Spark'} what={fallback ? 'fallback: Meta API unreachable' : 'judges the step, answers questions'} value={timing.spark ? `${timing.spark.toFixed(1)}s` : null} />
+              <Model on={lit.asr} name={asrModel === 'omnilingual-asr' ? 'Omnilingual ASR' : 'Muse Voice Transcribe'} what={asrModel === 'omnilingual-asr' ? "hears the question, on this laptop" : "hears the novice's question"} value={timing.asr ? `${timing.asr.toFixed(1)}s` : null} />
               <Model on={lit.voice && !said?.cloned} name="MMS-TTS" what="speaks the guide and answers" value={said && !said.cloned ? 'speaking' : null} />
             </Card>
 
@@ -389,6 +392,7 @@ function Dashboard() {
                         : <span className={c.unclear ? 'text-[#8C9099]' : c.check === 'done' ? (c.completed > c.step ? 'text-[#6EE7B7]' : 'text-[#A0A4AC]') : c.yes ? 'text-amber-300' : 'text-[#A0A4AC]'}>{verdict(c)}</span>}
                       {c.conf != null && <span>{Math.round(c.conf * 100)}%</span>}
                       <span className="flex-1" />
+                      {c.model?.includes('open') && <span className="text-amber-300" title="The Meta API was unreachable; answered by Muse Spark Open on Baseten">spark open</span>}
                       {c.latency_s != null && <span className="tabular-nums text-[#7DD3F5]">{c.latency_s.toFixed(1)}s</span>}
                     </div>
                     <p className="mt-0.5 leading-snug text-[#D4D6DA]">

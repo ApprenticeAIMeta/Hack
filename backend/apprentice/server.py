@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -40,6 +41,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from apprentice.guide.session import Session
+from apprentice.models.omni_worker import OmniASR
 from apprentice.progress.crop import read_frames
 from apprentice.progress.embed import Embedder
 from apprentice.progress.fuse import TaskProgress
@@ -295,6 +297,34 @@ def spoken(i: int) -> Response:
     return Response(_session.spoken[i], media_type="audio/wav")
 
 
+_omni = OmniASR()      # loads in the background when the glasses first connect
+
+
+def _hear(wav: Path, lang: str) -> tuple[str, str, float]:
+    """The novice's question as text: Muse Voice Transcribe first in English, Meta's Omnilingual
+    ASR (local, open weights) first in other languages (closer on a Hindi test question, but about
+    7 s warm against about 1 s), each the other's fallback when it fails or hears nothing.
+    ASK_ASR_FIRST=voice-transcribe or omnilingual overrides the order. Returns (text, model, seconds)."""
+    def vt():
+        return _session.client.transcribe(wav, mode="PUSH_TO_TALK").text.strip()
+    def omni():
+        return (_omni.transcribe(wav) or "").strip()
+    order = [("muse-voice-transcribe", vt), ("omnilingual-asr", omni)]
+    first = os.environ.get("ASK_ASR_FIRST", "auto")      # auto | voice-transcribe | omnilingual
+    if _omni.available() and (first == "omnilingual" or (first == "auto" and lang != "en")):
+        order.reverse()
+    t0 = time.perf_counter()
+    for name, fn in order:
+        try:
+            text = fn()
+        except Exception as e:
+            print(f"ask: {name} failed: {e}", flush=True)
+            continue
+        if text:
+            return text, name, time.perf_counter() - t0
+    return "", order[0][0], time.perf_counter() - t0
+
+
 @app.post("/api/ask")
 async def ask(request: Request, lang: str = "en", q: str | None = None) -> dict:
     """The novice's "hold to ask" button: the body is the recorded question (m4a/wav/webm bytes).
@@ -317,13 +347,12 @@ async def ask(request: Request, lang: str = "en", q: str | None = None) -> dict:
             src.write_bytes(audio)
             wav = Path(d) / "q.wav"
             subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-ac", "1", "-ar", "16000", str(wav)], check=True)
-            t0 = time.perf_counter()
-            heard = _session.client.transcribe(wav, mode="PUSH_TO_TALK").text.strip()
-            t_asr = time.perf_counter() - t0
-        print(f"ask: heard {heard!r} in {t_asr:.1f} s", flush=True)
+            heard, asr_model, t_asr = _hear(wav, _session.lang)
+        print(f"ask: {asr_model} heard {heard!r} in {t_asr:.1f} s", flush=True)
         if not heard:
             return {"question": "", "answer": "", "url": None, "asr_s": round(t_asr, 2)}
         out = _session.ask(heard)
+        out["asr_model"] = asr_model
         print(f"ask: answered {out['answer']!r} in {out['latency_s']} s", flush=True)
         out["asr_s"] = round(t_asr, 2)
         return out
@@ -332,7 +361,8 @@ async def ask(request: Request, lang: str = "en", q: str | None = None) -> dict:
     if out["answer"]:
         msg = {"type": "ask", "t": round(time.time() - _session.t0, 2), "step": out["step"],
                "question": out["question"], "answer": out["answer"], "url": out["url"],
-               "asr_s": out.get("asr_s"), "latency_s": out.get("latency_s"), "clip": out.get("clip")}
+               "asr_s": out.get("asr_s"), "latency_s": out.get("latency_s"), "clip": out.get("clip"),
+               "model": out.get("model"), "asr_model": out.get("asr_model")}
         await _broadcast(msg)
         if _session.recorder:
             i = int(out["url"].rsplit("/", 1)[1].split(".")[0]) if out["url"] else None
@@ -381,6 +411,7 @@ async def demo(session: str | None = None, speed: float = 1.0) -> dict:
 @app.websocket("/ws/device")
 async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = None, lang: str = "en") -> None:
     global _session, _device
+    _omni.start()
     await ws.accept()
     _stop_demo()
     loop = asyncio.get_running_loop()
