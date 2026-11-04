@@ -1,0 +1,603 @@
+{
+ "name": "thermocouple",
+ "task": "Connect thermocouple wire to the controller",
+ "workpiece": "wires",
+ "tools": [],
+ "source": {
+  "video": "thermocouple_expert1.mp4",
+  "duration_s": 172.19,
+  "width": 1408,
+  "height": 1872,
+  "audio_mean_db": -27.6
+ },
+ "steps": [
+  {
+   "id": "step_01",
+   "done_check": "Golden copper wire and silver gray wire are separated and visible.",
+   "expert_warnings": [],
+   "instruction": "Separate the golden copper wire from the silver constantan wire and keep both ends visible.",
+   "known_mistakes": [],
+   "objects": [
+    "thermocouple wire",
+    "copper golden wire",
+    "constantan silver wire"
+   ],
+   "spoken": "Separate the golden copper wire from the silver gray wire.",
+   "t_end": 32.8,
+   "t_start": 0.0,
+   "title": "Identify Wire Types",
+   "why": "A thermocouple measures temperature from the potential difference between the two wires.",
+   "voice": [
+    {
+     "file": "clips/step_01_1.m4a",
+     "start": 1.6,
+     "end": 6.05,
+     "text": "okay, so this is a typical thermocouple wire which we'll be using",
+     "turn_id": 0
+    },
+    {
+     "file": "clips/step_01_2.m4a",
+     "start": 6.05,
+     "end": 10.05,
+     "text": "for temperature measurement, right? it's made up of two wires internally.",
+     "turn_id": 1
+    },
+    {
+     "file": "clips/step_01_3.m4a",
+     "start": 10.05,
+     "end": 16.75,
+     "text": "one is copper which is the golden wire you see here and the other is constantan which is the silver.",
+     "turn_id": 2
+    },
+    {
+     "file": "clips/step_01_4.m4a",
+     "start": 16.75,
+     "end": 20.65,
+     "text": "or gray wire you see over here, thermocouple basically measures temperature",
+     "turn_id": 3
+    },
+    {
+     "file": "clips/step_01_5.m4a",
+     "start": 20.65,
+     "end": 23.45,
+     "text": "by reading off the potential difference between the two",
+     "turn_id": 4
+    },
+    {
+     "file": "clips/step_01_6.m4a",
+     "start": 23.45,
+     "end": 26.7,
+     "text": "um wires at the point where you're soldered together",
+     "turn_id": 5
+    },
+    {
+     "file": "clips/step_01_7.m4a",
+     "start": 26.7,
+     "end": 32.8,
+     "text": "so once you apply a small voltage here it will read off a temperature based on the difference um between these two wires.",
+     "turn_id": 6
+    }
+   ],
+   "say": {
+    "file": "clips/step_01_say.wav",
+    "text": "Separate the golden copper wire from the silver gray wire."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_01.jpg",
+    "t": 28.5,
+    "crop": "keyframes/step_01_crop.jpg"
+   }
+  },
+  {
+   "id": "step_02",
+   "done_check": "First slot thermocouple module with empty 16th channel ports is visible.",
+   "expert_warnings": [],
+   "instruction": "Select the empty 16th channel in the first slot thermocouple module of the controller.",
+   "known_mistakes": [
+    "selecting the analog input AI module instead of the thermocouple module"
+   ],
+   "objects": [
+    "controller",
+    "thermocouple module"
+   ],
+   "spoken": "Find the empty sixteenth channel in the first slot thermocouple module.",
+   "t_end": 68.0,
+   "t_start": 32.8,
+   "title": "Locate Target Channel",
+   "why": "",
+   "voice": [
+    {
+     "file": "clips/step_02_1.m4a",
+     "start": 32.8,
+     "end": 37.7,
+     "text": "so here is a typical National Instruments controller it's made up of",
+     "turn_id": 7
+    },
+    {
+     "file": "clips/step_02_2.m4a",
+     "start": 37.7,
+     "end": 40.5,
+     "text": "its slots where you can connect your different modules.",
+     "turn_id": 8
+    },
+    {
+     "file": "clips/step_02_3.m4a",
+     "start": 40.5,
+     "end": 46.75,
+     "text": "on the first module, on the first slot here we have a thermocouple module for reading all the thermocouple wires you see",
+     "turn_id": 9
+    },
+    {
+     "file": "clips/step_02_4.m4a",
+     "start": 46.75,
+     "end": 49.5,
+     "text": "uh already installed thermocouple wires",
+     "turn_id": 10
+    },
+    {
+     "file": "clips/step_02_5.m4a",
+     "start": 49.5,
+     "end": 53.7,
+     "text": "the third one is also a thermocouple module, the fourth one is an analog input.",
+     "turn_id": 11
+    },
+    {
+     "file": "clips/step_02_6.m4a",
+     "start": 53.7,
+     "end": 59.6,
+     "text": "module. You can see reading here AI then the seventh and eighth slots are also thermocouple modules.",
+     "turn_id": 12
+    },
+    {
+     "file": "clips/step_02_7.m4a",
+     "start": 59.6,
+     "end": 63.65,
+     "text": "so I will be making my connection to the first slot we have some",
+     "turn_id": 13
+    },
+    {
+     "file": "clips/step_02_8.m4a",
+     "start": 63.65,
+     "end": 68.05,
+     "text": "some empty ports here. I'll be connecting to the very last one, the 16th channel",
+     "turn_id": 14
+    }
+   ],
+   "say": {
+    "file": "clips/step_02_say.wav",
+    "text": "Find the empty sixteenth channel in the first slot thermocouple module."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_02.jpg",
+    "t": 57.0,
+    "crop": "keyframes/step_02_crop.jpg"
+   }
+  },
+  {
+   "id": "step_03",
+   "done_check": "Both wire ends are pushed into the 16th channel connector and the wires stay in place on their own.",
+   "expert_warnings": [
+    "connecting the constantan silver wire to the left port and the copper golden wire to the right port"
+   ],
+   "instruction": "Take the small screwdriver and press the orange button on the connector down. While you hold it, push the gold copper wire into the left port, then the silver constantan wire into the right port. Release the button to clamp them in.",
+   "known_mistakes": [
+    "connecting the constantan silver wire to the left port and the copper golden wire to the right port",
+    "leaving wire ends only partly seated in the ports"
+   ],
+   "objects": [
+    "copper golden wire",
+    "constantan silver wire",
+    "thermocouple module"
+   ],
+   "spoken": "Take the small screwdriver and press the orange button on the connector down. While you hold it, push the gold copper wire into the left port. Then the same on the right with the silver constantan wire. Release the button to clamp them in.",
+   "t_end": 153.2,
+   "t_start": 68.0,
+   "title": "Connect Wires Correctly",
+   "why": "Swapped wires give really bad values when read off the program.",
+   "voice": [
+    {
+     "file": "clips/step_03_1.m4a",
+     "start": 68.05,
+     "end": 72.4,
+     "text": "so on each thermocouple module, there are 16 channels so you can basically connect eight.",
+     "turn_id": 15
+    },
+    {
+     "file": "clips/step_03_2.m4a",
+     "start": 72.4,
+     "end": 79.2,
+     "text": "eighteen um sixteen thermocouples, to one thermocouple module. So, the way",
+     "turn_id": 16
+    },
+    {
+     "file": "clips/step_03_3.m4a",
+     "start": 79.2,
+     "end": 86.55,
+     "text": "oh wow sorry about that so the way typically it goes is that your copper wire goes into the port on the right on.",
+     "turn_id": 17
+    },
+    {
+     "file": "clips/step_03_4.m4a",
+     "start": 86.55,
+     "end": 93.15,
+     "text": "on the left, and your constantan wire goes into the port on the right. However, a typical mistake that",
+     "turn_id": 18
+    },
+    {
+     "file": "clips/step_03_5.m4a",
+     "start": 93.15,
+     "end": 96.95,
+     "text": "people make is connecting the constantan wire to the positive",
+     "turn_id": 19
+    },
+    {
+     "file": "clips/step_03_6.m4a",
+     "start": 96.95,
+     "end": 100.05,
+     "text": "on the left i'm connecting the copper wire to the port on the right.",
+     "turn_id": 20
+    },
+    {
+     "file": "clips/step_03_7.m4a",
+     "start": 100.05,
+     "end": 102.9,
+     "text": "right. That will give you really bad values when you read it off your",
+     "turn_id": 21
+    },
+    {
+     "file": "clips/step_03_8.m4a",
+     "start": 102.9,
+     "end": 108.15,
+     "text": "program I will show you a very good example right now. connecting the constantan to the left.",
+     "turn_id": 22
+    },
+    {
+     "file": "clips/step_03_9.m4a",
+     "start": 109.45,
+     "end": 110.4,
+     "text": "on the copper wire.",
+     "turn_id": 23
+    },
+    {
+     "file": "clips/step_03_10.m4a",
+     "start": 113.05,
+     "end": 120.8,
+     "text": "to the right now it's in you just have to pull on this wire a little bit to make sure it's secure in place and reading the right thing",
+     "turn_id": 24
+    },
+    {
+     "file": "clips/step_03_11.m4a",
+     "start": 120.8,
+     "end": 123.85,
+     "text": "however, when we read this off the screen over there,",
+     "turn_id": 25
+    },
+    {
+     "file": "clips/step_03_12.m4a",
+     "start": 123.85,
+     "end": 129.35,
+     "text": "comparing the other thermocouples at the top and the new connected one, you can see the drastic difference.",
+     "turn_id": 26
+    },
+    {
+     "file": "clips/step_03_13.m4a",
+     "start": 129.35,
+     "end": 132.65,
+     "text": "between the wires so that's a typical mistake you make",
+     "turn_id": 27
+    },
+    {
+     "file": "clips/step_03_14.m4a",
+     "start": 132.65,
+     "end": 135.45,
+     "text": "so that's not what you want. to",
+     "turn_id": 28
+    },
+    {
+     "file": "clips/step_03_15.m4a",
+     "start": 135.45,
+     "end": 140.5,
+     "text": "bring this out have your copper out on the left",
+     "turn_id": 29
+    },
+    {
+     "file": "clips/step_03_16.m4a",
+     "start": 140.5,
+     "end": 143.75,
+     "text": "and your constantan on the right.",
+     "turn_id": 30
+    },
+    {
+     "file": "clips/step_03_17.m4a",
+     "start": 146.1,
+     "end": 147.55,
+     "text": "so copper is and.",
+     "turn_id": 31
+    },
+    {
+     "file": "clips/step_03_18.m4a",
+     "start": 150.05,
+     "end": 153.2,
+     "text": "push the yellow tan constantan is in",
+     "turn_id": 32
+    }
+   ],
+   "say": {
+    "file": "clips/step_03_say.wav",
+    "text": "Push copper golden wire in the left port and constantan in the right."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_03.jpg",
+    "t": 146.0,
+    "crop": "keyframes/step_03_crop.jpg"
+   }
+  },
+  {
+   "id": "step_04",
+   "done_check": "Both wires remain seated in ports after gentle pull.",
+   "expert_warnings": [],
+   "instruction": "Pull gently on both wires to confirm each wire is secure in place.",
+   "known_mistakes": [
+    "yanking wires hard enough to pull seated wires out"
+   ],
+   "objects": [
+    "copper golden wire",
+    "constantan silver wire"
+   ],
+   "spoken": "Pull both wires lightly to confirm each wire is secure.",
+   "t_end": 160.8,
+   "t_start": 153.2,
+   "title": "Secure Wire Connection",
+   "why": "Pulling confirms the wire is secure in place and reading the right thing.",
+   "voice": [
+    {
+     "file": "clips/step_04_1.m4a",
+     "start": 153.2,
+     "end": 160.85,
+     "text": "now he's secure in place. So if you check it again you can see that all the temperatures are reading the same value on average.",
+     "turn_id": 33
+    }
+   ],
+   "say": {
+    "file": "clips/step_04_say.wav",
+    "text": "Pull both wires lightly to confirm each wire is secure."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_04.jpg",
+    "t": 151.0,
+    "crop": "keyframes/step_04_crop.jpg"
+   }
+  }
+ ],
+ "transcript": [
+  {
+   "id": 0,
+   "start": 1.6,
+   "end": 6.05,
+   "text": "okay, so this is a typical thermocouple wire which we'll be using"
+  },
+  {
+   "id": 1,
+   "start": 6.05,
+   "end": 10.05,
+   "text": "for temperature measurement, right? it's made up of two wires internally."
+  },
+  {
+   "id": 2,
+   "start": 10.05,
+   "end": 16.75,
+   "text": "one is copper which is the golden wire you see here and the other is constantan which is the silver."
+  },
+  {
+   "id": 3,
+   "start": 16.75,
+   "end": 20.65,
+   "text": "or gray wire you see over here, thermocouple basically measures temperature"
+  },
+  {
+   "id": 4,
+   "start": 20.65,
+   "end": 23.45,
+   "text": "by reading off the potential difference between the two"
+  },
+  {
+   "id": 5,
+   "start": 23.45,
+   "end": 26.7,
+   "text": "um wires at the point where you're soldered together"
+  },
+  {
+   "id": 6,
+   "start": 26.7,
+   "end": 32.8,
+   "text": "so once you apply a small voltage here it will read off a temperature based on the difference um between these two wires."
+  },
+  {
+   "id": 7,
+   "start": 32.8,
+   "end": 37.7,
+   "text": "so here is a typical National Instruments controller it's made up of"
+  },
+  {
+   "id": 8,
+   "start": 37.7,
+   "end": 40.5,
+   "text": "its slots where you can connect your different modules."
+  },
+  {
+   "id": 9,
+   "start": 40.5,
+   "end": 46.75,
+   "text": "on the first module, on the first slot here we have a thermocouple module for reading all the thermocouple wires you see"
+  },
+  {
+   "id": 10,
+   "start": 46.75,
+   "end": 49.5,
+   "text": "uh already installed thermocouple wires"
+  },
+  {
+   "id": 11,
+   "start": 49.5,
+   "end": 53.7,
+   "text": "the third one is also a thermocouple module, the fourth one is an analog input."
+  },
+  {
+   "id": 12,
+   "start": 53.7,
+   "end": 59.6,
+   "text": "module. You can see reading here AI then the seventh and eighth slots are also thermocouple modules."
+  },
+  {
+   "id": 13,
+   "start": 59.6,
+   "end": 63.65,
+   "text": "so I will be making my connection to the first slot we have some"
+  },
+  {
+   "id": 14,
+   "start": 63.65,
+   "end": 68.05,
+   "text": "some empty ports here. I'll be connecting to the very last one, the 16th channel"
+  },
+  {
+   "id": 15,
+   "start": 68.05,
+   "end": 72.4,
+   "text": "so on each thermocouple module, there are 16 channels so you can basically connect eight."
+  },
+  {
+   "id": 16,
+   "start": 72.4,
+   "end": 79.2,
+   "text": "eighteen um sixteen thermocouples, to one thermocouple module. So, the way"
+  },
+  {
+   "id": 17,
+   "start": 79.2,
+   "end": 86.55,
+   "text": "oh wow sorry about that so the way typically it goes is that your copper wire goes into the port on the right on."
+  },
+  {
+   "id": 18,
+   "start": 86.55,
+   "end": 93.15,
+   "text": "on the left, and your constantan wire goes into the port on the right. However, a typical mistake that"
+  },
+  {
+   "id": 19,
+   "start": 93.15,
+   "end": 96.95,
+   "text": "people make is connecting the constantan wire to the positive"
+  },
+  {
+   "id": 20,
+   "start": 96.95,
+   "end": 100.05,
+   "text": "on the left i'm connecting the copper wire to the port on the right."
+  },
+  {
+   "id": 21,
+   "start": 100.05,
+   "end": 102.9,
+   "text": "right. That will give you really bad values when you read it off your"
+  },
+  {
+   "id": 22,
+   "start": 102.9,
+   "end": 108.15,
+   "text": "program I will show you a very good example right now. connecting the constantan to the left."
+  },
+  {
+   "id": 23,
+   "start": 109.45,
+   "end": 110.4,
+   "text": "on the copper wire."
+  },
+  {
+   "id": 24,
+   "start": 113.05,
+   "end": 120.8,
+   "text": "to the right now it's in you just have to pull on this wire a little bit to make sure it's secure in place and reading the right thing"
+  },
+  {
+   "id": 25,
+   "start": 120.8,
+   "end": 123.85,
+   "text": "however, when we read this off the screen over there,"
+  },
+  {
+   "id": 26,
+   "start": 123.85,
+   "end": 129.35,
+   "text": "comparing the other thermocouples at the top and the new connected one, you can see the drastic difference."
+  },
+  {
+   "id": 27,
+   "start": 129.35,
+   "end": 132.65,
+   "text": "between the wires so that's a typical mistake you make"
+  },
+  {
+   "id": 28,
+   "start": 132.65,
+   "end": 135.45,
+   "text": "so that's not what you want. to"
+  },
+  {
+   "id": 29,
+   "start": 135.45,
+   "end": 140.5,
+   "text": "bring this out have your copper out on the left"
+  },
+  {
+   "id": 30,
+   "start": 140.5,
+   "end": 143.75,
+   "text": "and your constantan on the right."
+  },
+  {
+   "id": 31,
+   "start": 146.1,
+   "end": 147.55,
+   "text": "so copper is and."
+  },
+  {
+   "id": 32,
+   "start": 150.05,
+   "end": 153.2,
+   "text": "push the yellow tan constantan is in"
+  },
+  {
+   "id": 33,
+   "start": 153.2,
+   "end": 160.85,
+   "text": "now he's secure in place. So if you check it again you can see that all the temperatures are reading the same value on average."
+  },
+  {
+   "id": 34,
+   "start": 160.85,
+   "end": 164.5,
+   "text": "so this is the right way to connect your thermocouple."
+  },
+  {
+   "id": 35,
+   "start": 164.5,
+   "end": 170.2,
+   "text": "to a thermocouple module in a National Instruments controller and reading it off in LabVIEW."
+  }
+ ],
+ "compile": {
+  "spark_model": "muse-spark-1.3",
+  "effort": "medium",
+  "wall_s": 203.5,
+  "cost_usd_this_run": {
+   "transcribe": 0.0086,
+   "steps": 0.086
+  },
+  "compiled_at": "2026-11-04T10:32:13"
+ },
+ "done_conf": 0.45,
+ "advance_on": "signal",
+ "takeaway": "the gold copper wire goes in the left port, and the silver constantan wire in the right. Swap them, and every temperature reads backwards."
+}

@@ -56,6 +56,8 @@ DASH_FPS, DASH_H = 8, 640   # dashboard frames: thinned and downscaled before th
 SETTLE_HAND_S = 1.5         # how often SAM looks for hands while the paper is in view
 SETTLE_TICKS = 2            # clear looks in a row (about 1.5-3 s)
 SETTLE_COOLDOWN_S = 8.0     # between hands-off checks until a hand touches the paper again
+SETTLE_REARM_S = 20.0       # hands stay off this long after a settle check: look again (the novice
+                            # finished and is waiting for the advance, not pausing mid-work)
 SPEND_CAP_USD = float(os.environ.get("SPEND_CAP_USD", "40"))   # across all sessions of this server
 
 
@@ -440,6 +442,8 @@ class Session:
                 ev["play"] = self._say_step(e.step)
             if e.kind == "warn":
                 ev["play"] = self._say_warn(e.step, e.data.get("what") or "", e.data.get("utterance_id"))
+            if e.kind == "complete":
+                ev["play"] = self._say_complete(e.t)
             events.append(ev)
         # A novice working hands-free hears the current step again after REMIND_S of silence, so the
         # guide never goes quiet while they wait for a check to land
@@ -536,6 +540,25 @@ class Session:
             return {"url": url, "text": text}
         i = self._spoken_ids.get(key) or self._spoken_ids.get("generic_warn")
         return {"url": f"/api/spoken/{i}.wav" if i else None, "text": text}
+
+    def _say_complete(self, t: float) -> dict | None:
+        """The wrap-up once the last step lands: well done, the run's stats, and the one thing to
+        remember. Synthesized on the spot (the MMS model is warm from _prerender): the stats are
+        only known now, so this line cannot be pre-rendered."""
+        warns = sum(1 for e in self.tracker.events if e.kind == "warn")
+        mins = t / 60
+        stats = (f"You took {mins:.0f} minute{'s' if mins >= 1.5 else ''}"
+                 + (f" and needed {warns} warning{'s' if warns != 1 else ''}." if warns
+                    else ", with not a single warning."))
+        takeaway = self.proc.get("takeaway")
+        text = (f"Good job, you finished the whole task! {stats}"
+                + (f" One thing to remember: {takeaway}" if takeaway else ""))
+        try:
+            i = len(self.spoken) + 1
+            self.spoken[i] = speaker().say(text)
+            return {"url": f"/api/spoken/{i}.wav", "text": text}
+        except Exception:
+            return {"url": None, "text": text}     # the caption still lands if synthesis fails
 
     def _prerender(self) -> None:
         """MMS-TTS lines for every known mistake plus a generic Stop, made while the first frames
@@ -681,6 +704,11 @@ class Session:
             st["blocked"] += 1
             return
         st["ticks"] += 1
+        if not st["armed"] and t - st["fired"] >= SETTLE_REARM_S:
+            # thermocouple novice3: the one settle check answered wrong, then the novice stood
+            # hands-off and done for 40 s with no recheck, because only a hand back on the work
+            # re-arms. A long clear wait means "still waiting", so take another look.
+            st["armed"] = True
         if st["ticks"] < SETTLE_TICKS or not st["armed"] or t - st["fired"] < SETTLE_COOLDOWN_S:
             return
         st["fired"], st["armed"] = t, False

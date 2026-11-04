@@ -1,0 +1,524 @@
+{
+ "name": "airplane_v2",
+ "task": "Fold a paper airplane from a notebook page",
+ "workpiece": "paper airplane",
+ "tools": [],
+ "source": {
+  "video": "plane_expert_narrated.mp4",
+  "duration_s": 145.31,
+  "width": 1520,
+  "height": 2016,
+  "audio_mean_db": -29.0
+ },
+ "steps": [
+  {
+   "id": "step_01",
+   "done_check": "Single loose lined page lies separate from the notebook",
+   "expert_warnings": [],
+   "instruction": "Tear one lined page cleanly from the spiral notebook.",
+   "known_mistakes": [
+    "tearing crookedly leaving jagged page",
+    "tearing multiple pages at once"
+   ],
+   "objects": [
+    "spiral notebook",
+    "lined page"
+   ],
+   "spoken": "Tear one lined page from the notebook.",
+   "t_end": 20.1,
+   "t_start": 0.0,
+   "title": "Tear Notebook Page",
+   "why": "",
+   "voice": [],
+   "say": {
+    "file": "clips/step_01_say.wav",
+    "text": "Tear one lined page from the notebook."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_01.jpg",
+    "t": 18.9
+   }
+  },
+  {
+   "id": "step_02",
+   "done_check": "Page edge is straight with no perforated fringe remaining",
+   "expert_warnings": [],
+   "instruction": "Tear off the narrow perforated strip along the spiral edge while keeping the page even.",
+   "known_mistakes": [
+    "tearing into the main page unevenly",
+    "leaving perforated fringe on the edge"
+   ],
+   "objects": [
+    "lined page",
+    "perforated strip"
+   ],
+   "spoken": "Tear off the perforated strip keeping the page even.",
+   "t_end": 47.9,
+   "t_start": 20.1,
+   "title": "Trim Perforated Edge",
+   "why": "The perforated edge leaves uneven sides.",
+   "voice": [
+    {
+     "file": "clips/step_02_1.m4a",
+     "start": 20.1,
+     "end": 22.95,
+     "text": "So I tore off the page from.",
+     "turn_id": 0
+    },
+    {
+     "file": "clips/step_02_2.m4a",
+     "start": 22.95,
+     "end": 25.9,
+     "text": "From the notebook. Now, I'm gonna",
+     "turn_id": 1
+    },
+    {
+     "file": "clips/step_02_3.m4a",
+     "start": 25.9,
+     "end": 31.65,
+     "text": "tear the side of it so that there's no like weird sides.",
+     "turn_id": 2
+    },
+    {
+     "file": "clips/step_02_4.m4a",
+     "start": 38.45,
+     "end": 43.0,
+     "text": "i'm doing this while making sure that the page remains even.",
+     "turn_id": 3
+    }
+   ],
+   "say": {
+    "file": "clips/step_02_say.wav",
+    "text": "Tear off the perforated strip keeping the page even."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_02.jpg",
+    "t": 46.4
+   }
+  },
+  {
+   "id": "step_03",
+   "done_check": "Sheet forms a long narrow rectangle with center crease on top",
+   "expert_warnings": [],
+   "instruction": "Fold the sheet vertically into two equal halves with the crease at the top.",
+   "known_mistakes": [
+    "folding crosswise instead of lengthwise",
+    "folding halves unevenly at the edges"
+   ],
+   "objects": [
+    "paper sheet"
+   ],
+   "spoken": "Fold the sheet vertically into equal halves crease up.",
+   "t_end": 65.2,
+   "t_start": 47.9,
+   "title": "Fold Sheet Lengthwise",
+   "why": "",
+   "voice": [
+    {
+     "file": "clips/step_03_1.m4a",
+     "start": 47.85,
+     "end": 51.55,
+     "text": "Now, Razdan, I have the base of my airplane ready.",
+     "turn_id": 4
+    },
+    {
+     "file": "clips/step_03_2.m4a",
+     "start": 51.55,
+     "end": 54.9,
+     "text": "Now, I will fold the sheet vertically.",
+     "turn_id": 5
+    },
+    {
+     "file": "clips/step_03_3.m4a",
+     "start": 57.15,
+     "end": 58.7,
+     "text": "into two equal halves.",
+     "turn_id": 6
+    },
+    {
+     "file": "clips/step_03_4.m4a",
+     "start": 60.5,
+     "end": 64.0,
+     "text": "and i will keep the top where the bend comes on the top.",
+     "turn_id": 7
+    }
+   ],
+   "say": {
+    "file": "clips/step_03_say.wav",
+    "text": "Fold the sheet vertically into equal halves crease up."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_03.jpg",
+    "t": 65.0
+   }
+  },
+  {
+   "id": "step_04",
+   "done_check": "Top of sheet forms a symmetric point with two meeting triangles",
+   "expert_warnings": [],
+   "instruction": "Fold the right and left upper corners inward to the center crease to form two triangles.",
+   "known_mistakes": [
+    "folding corners short of the center crease",
+    "folding uneven triangles on each side"
+   ],
+   "objects": [
+    "paper sheet"
+   ],
+   "spoken": "Fold both upper corners to the center forming triangles.",
+   "t_end": 76.7,
+   "t_start": 65.2,
+   "title": "Fold Top Corners",
+   "why": "",
+   "voice": [
+    {
+     "file": "clips/step_04_1.m4a",
+     "start": 65.2,
+     "end": 72.2,
+     "text": "Then I'll fold the upper parts to create two triangles. On the right hand side.",
+     "turn_id": 8
+    },
+    {
+     "file": "clips/step_04_2.m4a",
+     "start": 73.55,
+     "end": 75.3,
+     "text": "and then on the left hand side.",
+     "turn_id": 9
+    }
+   ],
+   "say": {
+    "file": "clips/step_04_say.wav",
+    "text": "Fold both upper corners to the center forming triangles."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_04.jpg",
+    "t": 75.4
+   }
+  },
+  {
+   "id": "step_05",
+   "done_check": "Sharper narrow triangle point extends down the center crease",
+   "expert_warnings": [],
+   "instruction": "Fold each slanted side inward again to the center to form a sharper nose point.",
+   "known_mistakes": [
+    "stopping folds short of the bottom center",
+    "creasing misaligned left and right sides"
+   ],
+   "objects": [
+    "paper sheet"
+   ],
+   "spoken": "Fold each slanted side to the center again.",
+   "t_end": 100.8,
+   "t_start": 76.7,
+   "title": "Fold Sides Sharper",
+   "why": "",
+   "voice": [
+    {
+     "file": "clips/step_05_1.m4a",
+     "start": 76.65,
+     "end": 81.9,
+     "text": "and then I will fall in",
+     "turn_id": 10
+    },
+    {
+     "file": "clips/step_05_2.m4a",
+     "start": 81.9,
+     "end": 87.05,
+     "text": "each side further from the top to create a new triangle which reaches",
+     "turn_id": 11
+    },
+    {
+     "file": "clips/step_05_3.m4a",
+     "start": 87.05,
+     "end": 93.5,
+     "text": "The middle to the bottom. And make another",
+     "turn_id": 12
+    }
+   ],
+   "say": {
+    "file": "clips/step_05_say.wav",
+    "text": "Fold each slanted side to the center again."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_05.jpg",
+    "t": 96.3
+   }
+  },
+  {
+   "id": "step_06",
+   "done_check": "Folded body is a slim layered wedge with point forward",
+   "expert_warnings": [],
+   "instruction": "Fold the pointed shape in half along the center with outer folds facing outward.",
+   "known_mistakes": [
+    "folding inside out with triangles hidden",
+    "pressing uneven halves together"
+   ],
+   "objects": [
+    "folded paper"
+   ],
+   "spoken": "Fold the pointed shape in half outward.",
+   "t_end": 114.9,
+   "t_start": 100.8,
+   "title": "Fold Airplane Halved",
+   "why": "",
+   "voice": [
+    {
+     "file": "clips/step_06_1.m4a",
+     "start": 100.8,
+     "end": 108.45,
+     "text": "And that's done, I have this with me. Now, I will fold the airplane from the middle.",
+     "turn_id": 14
+    }
+   ],
+   "say": {
+    "file": "clips/step_06_say.wav",
+    "text": "Fold the pointed shape in half outward."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_06.jpg",
+    "t": 110.0
+   }
+  },
+  {
+   "id": "step_07",
+   "done_check": "Two flat wings extend outward with straight outer edges",
+   "expert_warnings": [],
+   "instruction": "Fold each outer edge down to the bottom center to create two wing flaps.",
+   "known_mistakes": [
+    "folding wings of unequal width",
+    "creasing wings unevenly to one side"
+   ],
+   "objects": [
+    "paper airplane",
+    "wing flaps"
+   ],
+   "spoken": "Fold each outer edge down to make wings.",
+   "t_end": 135.7,
+   "t_start": 114.9,
+   "title": "Create Wing Flaps",
+   "why": "",
+   "voice": [
+    {
+     "file": "clips/step_07_1.m4a",
+     "start": 114.9,
+     "end": 120.25,
+     "text": "and then i will further fold the outer edge",
+     "turn_id": 16
+    },
+    {
+     "file": "clips/step_07_2.m4a",
+     "start": 120.25,
+     "end": 124.35,
+     "text": "In work to create the flaps.",
+     "turn_id": 17
+    },
+    {
+     "file": "clips/step_07_3.m4a",
+     "start": 125.75,
+     "end": 129.0,
+     "text": "On the one side and then also do the same",
+     "turn_id": 18
+    },
+    {
+     "file": "clips/step_07_4.m4a",
+     "start": 129.0,
+     "end": 135.7,
+     "text": "for the other side.",
+     "turn_id": 19
+    }
+   ],
+   "say": {
+    "file": "clips/step_07_say.wav",
+    "text": "Fold each outer edge down to make wings."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_07.jpg",
+    "t": 135.7
+   }
+  },
+  {
+   "id": "step_08",
+   "done_check": "Paper airplane leaves the hand airborne nose forward",
+   "expert_warnings": [],
+   "instruction": "Hold the bottom center and throw the airplane forward to fly it.",
+   "known_mistakes": [
+    "holding wings closed during release",
+    "throwing nose upward instead of forward"
+   ],
+   "objects": [
+    "paper airplane"
+   ],
+   "spoken": "Hold the center bottom and throw it forward.",
+   "t_end": 144.9,
+   "t_start": 135.7,
+   "title": "Launch Paper Airplane",
+   "why": "",
+   "voice": [
+    {
+     "file": "clips/step_08_1.m4a",
+     "start": 135.7,
+     "end": 139.25,
+     "text": "then finally I will hold it",
+     "turn_id": 20
+    },
+    {
+     "file": "clips/step_08_2.m4a",
+     "start": 139.25,
+     "end": 144.9,
+     "text": "and I will fly it like this",
+     "turn_id": 21
+    }
+   ],
+   "say": {
+    "file": "clips/step_08_say.wav",
+    "text": "Hold the center bottom and throw it forward."
+   },
+   "reference_frame": {
+    "file": "keyframes/step_08.jpg",
+    "t": 144.4
+   }
+  }
+ ],
+ "transcript": [
+  {
+   "id": 0,
+   "start": 20.1,
+   "end": 22.95,
+   "text": "So I tore off the page from."
+  },
+  {
+   "id": 1,
+   "start": 22.95,
+   "end": 25.9,
+   "text": "From the notebook. Now, I'm gonna"
+  },
+  {
+   "id": 2,
+   "start": 25.9,
+   "end": 31.65,
+   "text": "tear the side of it so that there's no like weird sides."
+  },
+  {
+   "id": 3,
+   "start": 38.45,
+   "end": 43.0,
+   "text": "i'm doing this while making sure that the page remains even."
+  },
+  {
+   "id": 4,
+   "start": 47.85,
+   "end": 51.55,
+   "text": "Now, Razdan, I have the base of my airplane ready."
+  },
+  {
+   "id": 5,
+   "start": 51.55,
+   "end": 54.9,
+   "text": "Now, I will fold the sheet vertically."
+  },
+  {
+   "id": 6,
+   "start": 57.15,
+   "end": 58.7,
+   "text": "into two equal halves."
+  },
+  {
+   "id": 7,
+   "start": 60.5,
+   "end": 64.0,
+   "text": "and i will keep the top where the bend comes on the top."
+  },
+  {
+   "id": 8,
+   "start": 65.2,
+   "end": 72.2,
+   "text": "Then I'll fold the upper parts to create two triangles. On the right hand side."
+  },
+  {
+   "id": 9,
+   "start": 73.55,
+   "end": 75.3,
+   "text": "and then on the left hand side."
+  },
+  {
+   "id": 10,
+   "start": 76.65,
+   "end": 81.9,
+   "text": "and then I will fall in"
+  },
+  {
+   "id": 11,
+   "start": 81.9,
+   "end": 87.05,
+   "text": "each side further from the top to create a new triangle which reaches"
+  },
+  {
+   "id": 12,
+   "start": 87.05,
+   "end": 93.5,
+   "text": "The middle to the bottom. And make another"
+  },
+  {
+   "id": 13,
+   "start": 93.5,
+   "end": 97.05,
+   "text": "uh segregation."
+  },
+  {
+   "id": 14,
+   "start": 100.8,
+   "end": 108.45,
+   "text": "And that's done, I have this with me. Now, I will fold the airplane from the middle."
+  },
+  {
+   "id": 15,
+   "start": 112.8,
+   "end": 113.5,
+   "text": "like this"
+  },
+  {
+   "id": 16,
+   "start": 114.9,
+   "end": 120.25,
+   "text": "and then i will further fold the outer edge"
+  },
+  {
+   "id": 17,
+   "start": 120.25,
+   "end": 124.35,
+   "text": "In work to create the flaps."
+  },
+  {
+   "id": 18,
+   "start": 125.75,
+   "end": 129.0,
+   "text": "On the one side and then also do the same"
+  },
+  {
+   "id": 19,
+   "start": 129.0,
+   "end": 135.7,
+   "text": "for the other side."
+  },
+  {
+   "id": 20,
+   "start": 135.7,
+   "end": 139.25,
+   "text": "then finally I will hold it"
+  },
+  {
+   "id": 21,
+   "start": 139.25,
+   "end": 144.9,
+   "text": "and I will fly it like this"
+  }
+ ],
+ "compile": {
+  "spark_model": "muse-spark-1.3",
+  "effort": "medium",
+  "wall_s": 70.0,
+  "cost_usd_this_run": {
+   "steps": 0.0696
+  },
+  "compiled_at": "2026-11-04T08:51:15"
+ }
+}

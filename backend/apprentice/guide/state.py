@@ -109,6 +109,7 @@ class Tracker:
         self.instructed = False
         self.ahead: int | None = None   # previous locate answer that was past the current step
         self.here = 0                   # consecutive locate answers placing the novice on this step
+        self.behind = 0                 # consecutive answers NOT past this step; two in a row cancel a pending advance
         self.suspect = False      # one positive mistake check seen; recheck before warning
         self.pending: list[tuple[float, str, int, Handle]] = []  # (asked at, kind, step, handle)
         self.last_ask = {"done": -1e9, "mistake": -1e9}
@@ -139,7 +140,7 @@ class Tracker:
         return any(p[1] == kind for p in self.pending)
 
     def _enter(self, t: float, k: int) -> None:
-        self.k, self.ahead, self.suspect, self.here = k, None, False, 0
+        self.k, self.ahead, self.suspect, self.here, self.behind = k, None, False, 0, 0
         self.entered_t = self.last_seen = t
         # The novice has only just started this step: the first timed check waits FIRST_CHECK_S
         # instead of firing at once (catch3: that check's still waited for the spoken instruction
@@ -172,6 +173,7 @@ class Tracker:
                 n = res.completed
                 if n > self.k:
                     self.here = 0
+                    self.behind = 0
                     manual = asked == self.manual_at   # hands off or tapped: the novice signalled it is done
                     # Any answer past the current step means at least this step is done. Answers that
                     # read one step ahead are common (a plane being folded in half "has wings"), so the
@@ -192,8 +194,13 @@ class Tracker:
                     else:
                         self.ahead = n
                 else:
-                    self.ahead = None
                     self.here += 1
+                    self.behind += 1
+                    # One contradicting answer does not cancel a pending advance: on a hard-to-see
+                    # step locate bounces (thermocouple novice3 read 2,0,2,2,1,4,1,0 on step 3), so
+                    # only two answers in a row that say "not past this step" reset the streak
+                    if self.behind >= 2:
+                        self.ahead = None
                     if not self.instructed:
                         self.instructed = True
                         self._emit(arrival, "instruct", self.k)
