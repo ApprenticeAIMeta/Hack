@@ -116,12 +116,18 @@ function SeenPanel({ seen }) {
         <span className="mono text-[11px] text-[#8C9099]">{fmt(s.t)} · s{pad(s.step + 1)}</span>
       </div>
       <div className="grid grid-cols-2 gap-2.5">
-        {s.photo && <img src={s.photo} alt="The photo taken when the novice signalled done, with the connector boxed" className="aspect-[3/4] w-full rounded-xl object-cover" />}
-        {s.crop ? <img src={s.crop} alt="The close-up Muse Spark judged" className="aspect-[3/4] w-full rounded-xl object-cover" />
-          : <div className="mono grid aspect-[3/4] place-items-center rounded-xl border border-white/8 px-3 text-center text-[11px] leading-relaxed text-[#8C9099]">NO CLEAR VIEW<br />OF THE CONNECTOR</div>}
+        <figure className="m-0">
+          {s.photo && <img src={s.photo} alt="What the glasses saw when the novice signalled done" className="aspect-[3/4] w-full rounded-xl object-cover" />}
+          <figcaption className="mono mt-1 text-[10px] tracking-[0.1em] text-[#8C9099]">NOVICE · NOW</figcaption>
+        </figure>
+        <figure className="m-0">
+          {s.crop ? <img src={s.crop} alt={s.compare === 'expert' ? "The expert's photo of this step done" : 'The close-up Muse Spark judged'} className="aspect-[3/4] w-full rounded-xl object-cover" />
+            : <div className="mono grid aspect-[3/4] place-items-center rounded-xl border border-white/8 px-3 text-center text-[11px] leading-relaxed text-[#8C9099]">NO CLEAR VIEW</div>}
+          <figcaption className="mono mt-1 text-[10px] tracking-[0.1em] text-[#8C9099]">{s.compare === 'expert' ? 'EXPERT · DONE' : 'CLOSE-UP JUDGED'}</figcaption>
+        </figure>
       </div>
       <p className={`mono mt-3 text-[11px] tracking-[0.1em] ${tone.text}`}>{tone.label}{s.conf ? ` · ${Math.round(s.conf * 100)}%` : ''}</p>
-      <p className="mt-1 text-[14px] leading-snug text-[#D4D6DA]">{s.verdict || (s.status === 'ok' ? 'No mistake seen.' : '')}</p>
+      <p className="mt-1 text-[14px] leading-snug text-[#D4D6DA]">{s.status === 'ok' ? 'No mistake seen.' : s.verdict}</p>
       {seen.length > 1 && (
         <div className="mt-3 flex gap-1.5">
           {seen.slice(1).map((o, i) => (

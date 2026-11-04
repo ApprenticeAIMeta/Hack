@@ -272,7 +272,8 @@ class Session:
                 res = confirm_turned(res, (lambda: turned.result(timeout=LIVE_CONFIRM_S)) if turned is not None
                                      else (lambda: self.policy.mistake(step, cv2.rotate(view, cv2.ROTATE_90_CLOCKWISE))))
             if kind == "mistake" and asked_for and self.tracker.cfg.signal:
-                self._publish_seen(t, step, res, view, None, None)
+                # yours beside the expert's done photo: the pair Spark compared
+                self._publish_seen(t, step, res, view, None, self.policy.ref_crop(step), compare="expert")
             res.source = "stream" if still is None else "photo"
             return res
         fut = self.pool.submit(run)
@@ -284,7 +285,7 @@ class Session:
         fut.add_done_callback(wake)
         return _FutureHandle(fut)
 
-    def _publish_seen(self, t: float, step: int, res: Check, img: np.ndarray | None, box, crop) -> None:
+    def _publish_seen(self, t: float, step: int, res: Check, img: np.ndarray | None, box, crop, compare: str = "crop") -> None:
         """"What Spark saw" for the dashboard: the photo judged at a done-signal with the target box
         drawn on it, the crop the check ran on, and the verdict. Recorded, so replays show it too."""
         def url(im, w):
@@ -301,7 +302,7 @@ class Session:
                   else "ok")
         msg = {"type": "seen", "t": round(t, 2), "step": step, "status": status, "verdict": res.reason,
                "conf": round(res.confidence, 2), "check": self.proc["steps"][step].get("inspect", ""),
-               "photo": url(shot, 420), "crop": url(crop, 320)}
+               "photo": url(shot, 420), "crop": url(crop, 320), "compare": compare}
         if self.recorder:
             self.recorder.line(msg)
         self.publish(msg)
