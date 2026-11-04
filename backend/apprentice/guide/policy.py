@@ -168,6 +168,30 @@ class SparkPolicy:
         return Check(d["verdict"] == "done", float(d["confidence"]), d["reason"], r.latency_s, _cost(r.usage),
                      unclear=d["verdict"] == "unclear", **_tokens(r.usage))
 
+    def verify(self, k: int, live: np.ndarray) -> Check:
+        """The step looks finished: before moving on, compare the novice's result with the expert's
+        and look for each known mistake. Unlike the running mistake check, unfinished-looking work
+        is not excused here, because the novice has stopped and believes the step is done; that is
+        exactly when a corner left short of the crease or a fold made the wrong way shows."""
+        s = self.proc["steps"][k]
+        lines = [v for st in self.proc["steps"] for v in st["voice"]]
+        said = "\n".join(f"{v['turn_id']}: {v['text']}" for v in lines)
+        mistakes = "\n".join(f"- {m}" for m in s["known_mistakes"]) or "- none listed"
+        text = (f"Task: {self.proc['task']}. The novice has just finished this step: {s['instruction']}\n"
+                f"When it is done correctly: {s['done_check']}\n"
+                f"The expert warned about these mistakes on this step:\n{mistakes}\n"
+                "Image 1 is the expert's result, Image 2 is the novice's. Compare the shape of the work, not the hands, "
+                "the table or the lighting. Check each listed mistake in turn against Image 2, and also look for any "
+                "other clear difference from the expert's result that would ruin the next steps: edges that do not meet "
+                "the line they should, one side done and not the other, a fold made the wrong way, uneven halves. "
+                "Small imprecision is fine. If hands hide the part you need to see, say no mistake with low confidence.\n"
+                f"Expert's recorded lines (id: text):\n{said}\n"
+                "If there is a mistake, describe it in plain words for the novice, and pick the expert line that best "
+                "tells them what to do, or -1.")
+        d, lat, cost = self._ask(text, live, k, MISTAKE_SCHEMA, "verify_check")
+        uid = d["utterance_id"] if d["utterance_id"] in {v["turn_id"] for v in lines} else None
+        return Check(d["mistake"], float(d["confidence"]), d["what"], lat, cost, uid)
+
     def mistake(self, k: int, live: np.ndarray) -> Check:
         s = self.proc["steps"][k]
         lines = [v for st in self.proc["steps"] for v in st["voice"]]
