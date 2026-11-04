@@ -17,7 +17,11 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 PHONE="/sdcard/Download/Meta AI"
 t0=$(date +%s); stamp() { echo "[$(( $(date +%s) - t0 ))s] $*"; }
 
-pull() { adb pull "$PHONE/$1" "$ROOT/footage/${name}_$2.mp4" >/dev/null && stamp "pulled $1 -> footage/${name}_$2.mp4"; }
+# A path that exists on the laptop is used as is; anything else is pulled from the phone
+pull() {
+  if [ -f "$1" ]; then cp "$1" "$ROOT/footage/${name}_$2.mp4" && stamp "copied $1 -> footage/${name}_$2.mp4"
+  else adb pull "$PHONE/$1" "$ROOT/footage/${name}_$2.mp4" >/dev/null && stamp "pulled $1 -> footage/${name}_$2.mp4"; fi
+}
 pull "$first" expert1
 [ -n "$second" ] && pull "$second" expert2
 
