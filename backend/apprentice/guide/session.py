@@ -48,6 +48,7 @@ REACQUIRE = 10
 PHOTO_MIN_GAP_S = 6.0   # each still freezes the stream for 2-3 s, so most ticks must not ask for one
 PHOTO_TIMEOUT_S = 6.0   # the phone holds a still up to 2.5 s for the voice line, then 2-3 s to capture
 STILL_FRESH_S = 10.0    # a check asked soon after a still may judge the same still
+TARGET_REFIND_S = 15.0      # Spark re-finds the target this often, so a SAM track cannot drift for long
 TARGET_MIN_FRAC = 0.06      # a target narrower than this fraction of the photo is too far away to judge
 REMIND_S = float(os.environ.get("REMIND_S", "20"))   # repeat the step after this much silence; 0 turns it off
 ASK_TIMEOUT_S = 20.0    # a spoken answer slower than this fails instead of leaving the phone waiting
@@ -128,6 +129,9 @@ class Session:
         self.cost = 0.0
         self._intro_said = False
         self._still_raw: np.ndarray | None = None
+        self._find_fut: Future | None = None
+        self._find_t = -1e9
+        self._seen_imgs: tuple = (None, None, None)
         self._hold_until = 0.0
         self._said_t: float | None = None     # last time a line was spoken, for the reminder
         self.capped = False
@@ -246,8 +250,11 @@ class Session:
             if kind == "mistake" and asked_for and self.proc.get("target") and self.proc["steps"][step].get("inspect"):
                 res = self._target_check(step, self._still_raw if still is not None else frame)
                 res.source = "stream" if still is None else "photo"
+                self._publish_seen(t, step, res, *self._seen_imgs)
                 return res
             res = self.policy.locate(view) if kind == "done" else self.policy.mistake(step, view)
+            if kind == "mistake" and asked_for and self.tracker.cfg.signal:
+                self._publish_seen(t, step, res, view, None, None)
             if kind == "mistake" and res.yes:
                 res = confirm_turned(res, lambda: self.policy.mistake(step, cv2.rotate(view, cv2.ROTATE_90_CLOCKWISE)))
             res.source = "stream" if still is None else "photo"
@@ -261,18 +268,46 @@ class Session:
         fut.add_done_callback(wake)
         return _FutureHandle(fut)
 
+    def _publish_seen(self, t: float, step: int, res: Check, img: np.ndarray | None, box, crop) -> None:
+        """"What Spark saw" for the dashboard: the photo judged at a done-signal with the target box
+        drawn on it, the crop the check ran on, and the verdict. Recorded, so replays show it too."""
+        def url(im, w):
+            if im is None:
+                return None
+            im = cv2.resize(im, (w, round(im.shape[0] * w / im.shape[1])))
+            return "data:image/jpeg;base64," + base64.b64encode(cv2.imencode(".jpg", im, [cv2.IMWRITE_JPEG_QUALITY, 80])[1]).decode()
+        shot = None
+        if img is not None:
+            shot = img.copy()
+            if box is not None:
+                cv2.rectangle(shot, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (245, 211, 125), max(3, shot.shape[1] // 160))
+        status = ("unclear" if res.unclear else "mistake" if res.yes and res.confidence >= self.tracker.cfg.signal_mistake_conf
+                  else "ok")
+        msg = {"type": "seen", "t": round(t, 2), "step": step, "status": status, "verdict": res.reason,
+               "conf": round(res.confidence, 2), "check": self.proc["steps"][step].get("inspect", ""),
+               "photo": url(shot, 420), "crop": url(crop, 320)}
+        if self.recorder:
+            self.recorder.line(msg)
+        self.publish(msg)
+
     def _target_check(self, step: int, img: np.ndarray) -> Check:
         """A done-signal at a step with an "inspect" line: judge only a clear view of the target.
         Spark finds the target on the photo; hidden, too small, or under a hand is an unclear view
         (the guide asks the novice to show it), else the mistake check runs on a tight crop of it."""
         H, W = img.shape[:2]
-        box, cost = self.policy.find_target(img)
+        self._seen_imgs = (img, None, None)
+        # the tracked box is the target only when the target is tracked continuously ("track_target")
+        tracked = self.proc.get("track_target") and self.box is not None
+        box, cost = (self._still_box(img), 0.0) if tracked else (None, 0.0)
+        if box is None:
+            box, cost = self.policy.find_target(img)
         if box is None:
             return Check(False, 0.0, "can't see the connector", 0.0, cost, unclear=True)
         x1, y1, x2, y2 = box
         if (x2 - x1) < TARGET_MIN_FRAC * W:
             return Check(False, 0.0, "connector too small in view", 0.0, cost, unclear=True)
         hands = [h for h in self._sam(img, "hand") if h[4] >= 0.6]
+        self._seen_imgs = (img, box, None)
         if any(_touches(box, h[:4], margin=0.0) for h in hands):
             return Check(False, 0.0, "a hand is on the connector", 0.0, cost, unclear=True)
         pad = 0.6 * max(x2 - x1, y2 - y1)
@@ -281,6 +316,7 @@ class Session:
         crop = cv2.resize(crop, (640, round(crop.shape[0] * 640 / crop.shape[1])), interpolation=cv2.INTER_CUBIC)
         if self.recorder:
             self.recorder.photo(time.time() - self.t0, cv2.imencode(".jpg", crop)[1].tobytes())
+        self._seen_imgs = (img, (x1, y1, x2, y2), crop)
         res = self.policy.mistake(step, crop)
         res.cost += cost
         return res
@@ -329,13 +365,14 @@ class Session:
             if self.recorder:
                 self.recorder.photo(time.time() - self.t0, jpeg)
             self._still_raw = img
-            view = self._view(img, self._still_box(img))
+            sb = self._still_box(img)
+            view = self._view(img, sb) if sb is not None else img
             self._still_view = (time.time(), view)
             return view
         finally:
             self._photo_lock.release()
 
-    def _still_box(self, img: np.ndarray) -> tuple:
+    def _still_box(self, img: np.ndarray) -> tuple | None:
         """Where the workpiece is in a still. The still is the same camera as the stream (rotated
         upright above), so the tracked box scaled to the still's size is a good prompt and costs one
         SAM call; re-finding by name costs two and is the fallback when that prompt misses."""
@@ -349,6 +386,8 @@ class Session:
             got = self._sam(img, prompt)
             if got and _plausible(guess, got[0][:4]):
                 return tuple(got[0][:4])
+        if self.proc.get("target") and self.proc.get("track_target"):
+            return None        # target mode: the name search finds the wrong thing; the caller decides
         with ThreadPoolExecutor(2) as ex:
             wp, hands = ex.map(lambda p: self._sam(img, p), [self.proc["workpiece"], "hand"])
         touched = [r for r in wp if any(_touches(r[:4], h[:4]) for h in hands)] or wp
@@ -370,10 +409,54 @@ class Session:
         self.cost += 2.5 / 1000
         return [r_[1:] for r_ in parse_lines(r.text).get(0, []) if r_[5] >= 0.5]
 
+    def _target_box(self, frame: np.ndarray) -> tuple | None:
+        """Target mode (procedure.json "target"): Muse Spark finds the part to watch (it knows what
+        "the connector the wires go into" is; SAM finds nothing by that name), SAM 3.1 follows it
+        from its last box every tick. Spark runs in the background: at the start, whenever the track
+        is lost, and every TARGET_REFIND_S to pull a drifting track back."""
+        now = time.time()
+        f = self._find_fut
+        if f is not None and f.done():
+            self._find_fut = None
+            try:
+                found, cost = f.result()
+            except Exception:
+                found, cost = None, 0.0
+            self.cost += cost
+            if found is not None:
+                fresh = self._follow(frame, found) or found       # the head moved during the ~10 s search
+                if self.box is None or _iou(self.box, fresh) < 0.3:
+                    self.box = fresh
+            else:
+                # Spark cannot see the target: a SAM box prompt still returns a box where it was
+                # told to look (seen on black frames), so the track is dropped, not kept
+                self.box = None
+        box = self._follow(frame, self.box) if self.box is not None else None
+        if box is None:
+            self.box = None
+        if box is not None and not _plausible(self.box, box):
+            box = None
+        if self._find_fut is None and ((box is None and now - self._find_t > 2.0) or now - self._find_t > TARGET_REFIND_S):
+            self._find_t = now
+            self._find_fut = self.pool.submit(self.policy.find_target, frame.copy())
+        return box
+
+    def _follow(self, frame: np.ndarray, box: tuple) -> tuple | None:
+        """SAM 3.1 with a box prompt: the same object near `box` in this frame."""
+        H, W = frame.shape[:2]
+        x1, y1, x2, y2 = (int(v) for v in box)
+        prompt = build_object_prompt(size=(W, H), objects=[PromptObject(
+            id=1, prompts=[FramePrompt(frame=0, box=PromptBox(max(0, x1), max(0, y1), min(x2 + 1, W), min(y2 + 1, H)))])])
+        got = self._sam(frame, prompt)
+        return tuple(got[0][:4]) if got else None
+
     def _workpiece(self, frame: np.ndarray) -> tuple | None:
         """Follow the last box with a SAM box prompt (stable on blurry frames); when that loses it,
         find the workpiece again by name, keeping the match the hands touch. Re-finding by name every
-        REACQUIRE ticks keeps a box-prompt track from drifting onto a hand for good."""
+        REACQUIRE ticks keeps a box-prompt track from drifting onto a hand for good. A procedure with
+        a "target" is tracked by _target_box instead."""
+        if self.proc.get("target") and self.proc.get("track_target"):
+            return self._target_box(frame)
         self.ticks += 1
         if self.box is not None and self.ticks % REACQUIRE:
             H, W = frame.shape[:2]
@@ -772,6 +855,12 @@ class Session:
         hands = [h for h in self._sam(frame, "hand") if h[4] >= 0.6]
         on_paper = any(_touches(box, h[:4], margin=0.0) for h in hands)
         st["diff"] = len(hands)
+        if self.proc.get("track_target") and (box[2] - box[0]) < TARGET_MIN_FRAC * frame.shape[1]:
+            st["ticks"] = 0                                  # too far away to judge: not a signal
+            if not on_paper and t - st.get("closer_t", -1e9) > 15.0:
+                st["closer_t"] = t
+                self.tracker._emit(t, "closer", self.tracker.k, what="too far from the connector")
+            return
         if on_paper:
             st["ticks"], st["armed"] = 0, True
             st["blocked"] += 1

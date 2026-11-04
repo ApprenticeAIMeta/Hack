@@ -70,6 +70,12 @@ class Recorder:
             if not self._ticks.closed:
                 self._ticks.write(json.dumps(msg) + "\n")
 
+    def line(self, msg: dict) -> None:
+        """Any other message a replay should show (e.g. "seen", what Spark judged at a signal)."""
+        with self._lock:
+            if not self._ticks.closed:
+                self._ticks.write(json.dumps(msg) + "\n")
+
     def photo(self, t: float, jpeg: bytes) -> None:
         d = self.dir / "photos"
         d.mkdir(exist_ok=True)

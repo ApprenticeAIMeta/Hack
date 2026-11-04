@@ -98,6 +98,42 @@ function Model({ on, name, what, value }) {
   )
 }
 
+const SEEN_TONE = {
+  ok: { text: 'text-[#6EE7B7]', border: 'border-[#6EE7B7]/40', label: 'LOOKS RIGHT' },
+  mistake: { text: 'text-amber-300', border: 'border-amber-400/60', label: 'MISTAKE' },
+  unclear: { text: 'text-[#A0A4AC]', border: 'border-white/15', label: 'CAN\'T SEE IT' },
+}
+
+/** What Muse Spark looked at when the novice signalled done: the photo with the target box, the
+ * crop it judged, and its verdict. The newest is large; earlier ones are thumbnails. */
+function SeenPanel({ seen }) {
+  if (!seen.length) return null
+  const s = seen[0], tone = SEEN_TONE[s.status] || SEEN_TONE.unclear
+  return (
+    <Card className={`p-[18px] ${tone.border}`}>
+      <div className="mb-2.5 flex items-baseline justify-between">
+        <Label>WHAT SPARK SAW</Label>
+        <span className="mono text-[11px] text-[#8C9099]">{fmt(s.t)} · s{pad(s.step + 1)}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2.5">
+        {s.photo && <img src={s.photo} alt="The photo taken when the novice signalled done, with the connector boxed" className="aspect-[3/4] w-full rounded-xl object-cover" />}
+        {s.crop ? <img src={s.crop} alt="The close-up Muse Spark judged" className="aspect-[3/4] w-full rounded-xl object-cover" />
+          : <div className="mono grid aspect-[3/4] place-items-center rounded-xl border border-white/8 px-3 text-center text-[11px] leading-relaxed text-[#8C9099]">NO CLEAR VIEW<br />OF THE CONNECTOR</div>}
+      </div>
+      <p className={`mono mt-3 text-[11px] tracking-[0.1em] ${tone.text}`}>{tone.label}{s.conf ? ` · ${Math.round(s.conf * 100)}%` : ''}</p>
+      <p className="mt-1 text-[14px] leading-snug text-[#D4D6DA]">{s.verdict || (s.status === 'ok' ? 'No mistake seen.' : '')}</p>
+      {seen.length > 1 && (
+        <div className="mt-3 flex gap-1.5">
+          {seen.slice(1).map((o, i) => (
+            <img key={`${o.t}-${i}`} src={o.crop || o.photo} alt="" title={`${fmt(o.t)} s${pad(o.step + 1)}: ${o.verdict}`}
+              className={`h-11 w-11 rounded-lg border object-cover ${(SEEN_TONE[o.status] || SEEN_TONE.unclear).border}`} />
+          ))}
+        </div>
+      )}
+    </Card>
+  )
+}
+
 function Dashboard() {
   const [proc, procName, followSession] = useSessionProcedure()
   const [novice, setNovice] = useState(null)
@@ -127,6 +163,7 @@ function Dashboard() {
   const [warnEvents, setWarnEvents] = useState([])
   const [report, setReport] = useState(null)
   const [feedSize, setFeedSize] = useState([0, 0])
+  const [seen, setSeen] = useState([])
   const feedRef = useRef(null)
   const feedImg = useRef(null)
   const haveFeed = useRef(false)
@@ -148,7 +185,10 @@ function Dashboard() {
   }
 
   useSocket('/ws/dashboard', m => {
-    if (m.type === 'ask') {
+    if (m.type === 'seen') {
+      setSeen(v => [m, ...v].slice(0, 6))
+      flash('spark', 1500)
+    } else if (m.type === 'ask') {
       setSaid({ text: m.answer, t: m.t, q: m.question, clip: m.clip?.text })
       setChecks(c => [{ t: m.t, step: m.step, kind: 'ask', askRow: true, question: m.question, answer: m.answer, clip: m.clip, model: m.model, latency_s: m.latency_s }, ...c].slice(0, 60))
       flash('voice', 5000); flash('spark', 1500); flash('asr', 2500)
@@ -168,7 +208,7 @@ function Dashboard() {
       followSession(m)
       const started = m.status === 'started', replay = m.mode === 'replay'
       setStatus({ text: !started ? (replay ? 'Replay ended' : 'Session ended') : replay ? `Replay · ${m.run ?? m.session ?? ''}${m.speed && m.speed !== 1 ? ` · ${m.speed}x` : ''}` : 'Live', live: started && !replay, replay: started && replay })
-      if (started) { haveFeed.current = false; setDoneAt({}); setWarnEvents([]); setReport(null); setChecks([]); setCurve([]); setWarns([]); setDone(new Set()); setStep(0); setSaid(null); setWarn(null) }
+      if (started) { setSeen([]); haveFeed.current = false; setDoneAt({}); setWarnEvents([]); setReport(null); setChecks([]); setCurve([]); setWarns([]); setDone(new Set()); setStep(0); setSaid(null); setWarn(null) }
     } else if (m.type === 'state') {
       setNow(m.t)
       if (m.progress != null) { setProgress(m.progress); setCurve(c => [...c, [m.t, m.progress]]); flash('dino', 700) }
@@ -374,6 +414,7 @@ function Dashboard() {
       <Spark curve={curve} warns={warns} span={span} />
     </div>
   </Card>
+            <SeenPanel seen={seen} />
             <Card className="flex min-h-[320px] flex-1 flex-col px-[18px] pb-3 pt-5 xl:min-h-0">
             <div className="mb-2.5 flex items-baseline justify-between px-1">
               <Label>MUSE SPARK LOG</Label>
