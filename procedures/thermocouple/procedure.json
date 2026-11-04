@@ -335,7 +335,8 @@
    },
    "inspect": "Find the two thermocouple wire ends where they go into the connector ports. The copper wire looks gold or orange; the constantan wire looks silver or gray. Correct is gold copper in the LEFT port and silver constantan in the RIGHT port. If you can see the silver wire in the left port or the gold wire in the right port, the wires are reversed: that is the mistake, report it with high confidence. If the wire colors at the ports cannot be seen, it is not a mistake.",
    "show": "When both are in, take your hands away and look at the connector, so I can check it.",
-   "tip": "Before you lock it in, check your wires: gold copper on the left, silver constantan on the right."
+   "tip": "Before you lock it in, check your wires: gold copper on the left, silver constantan on the right.",
+   "verifiable": false
   },
   {
    "id": "step_04",
@@ -373,7 +374,8 @@
     "crop": "keyframes/step_04_crop.jpg"
    },
    "inspect": "Find the two thermocouple wire ends where they go into the connector ports. The copper wire looks gold or orange; the constantan wire looks silver or gray. Correct is gold copper in the LEFT port and silver constantan in the RIGHT port. If you can see the silver wire in the left port or the gold wire in the right port, the wires are reversed: that is the mistake, report it with high confidence. If the wire colors at the ports cannot be seen, it is not a mistake.",
-   "show": "Then let go, and hold still on the connector, so I can check."
+   "show": "Then let go, and hold still on the connector, so I can check.",
+   "verifiable": false
   }
  ],
  "transcript": [
@@ -608,7 +610,7 @@
  "advance_on": "signal",
  "takeaway": "the gold copper wire goes in the left port, and the silver constantan wire in the right. Swap them, and every temperature reads backwards.",
  "intro": "Today you'll wire a thermocouple into channel sixteen. I'm watching through your glasses: finish a step, take your hands away, and I'll check it.",
- "complete": "Done, good job! Now check the display: your channel should read the same temperature as the others. And remember: gold copper on the left, silver constantan on the right. Swap them, and the readings run backwards.",
+ "complete": "Done, good job! Now check the display: your channel should read the same as the others.",
  "target_desc": "the one orange-and-black screw terminal connector the person is working on: the one where the loose thermocouple wire ends go in, at the person's hands or the screwdriver, not the other identical connectors on the rack",
  "good": [
   "That looks right.",
@@ -619,5 +621,9 @@
  "closer": "I can't quite see it. Take your hands away and lean in, so I can see the connector.",
  "ask_clip_only": true,
  "expert_voice_only": true,
- "not_covered": "I didn't cover that when I recorded this. The answer's on your screen."
+ "not_covered": "I didn't cover that when I recorded this. The answer's on your screen.",
+ "ok": [
+  "Got it.",
+  "Okay, next step."
+ ]
 }

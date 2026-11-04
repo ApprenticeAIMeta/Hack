@@ -574,10 +574,8 @@ class Session:
                     # the expert's introduction to the task, once, ahead of the first step
                     self._intro_said = True
                     events.append({"t": e.t, "kind": "intro", "step": 0, "play": self._say_line("intro", self.proc["intro"])})
-                    self._hold_until = e.t + self._line_s("intro")   # no reminder while the intro plays
                     if self.proc.get("presence"):    # the guide is there with them: how to show it a finished step
                         events.append({"t": e.t, "kind": "presence", "step": 0, "play": self._say_line("presence", self.proc["presence"])})
-                        self._hold_until += self._line_s("presence")
                 ev["play"] = self._say_step(e.step)
             if e.kind == "closer":
                 ev["play"] = self._say_line("closer", self.proc.get("closer") or "Hands away, and lean in so I can see the connector.")
@@ -585,16 +583,29 @@ class Session:
             if e.kind == "tip":
                 st_ = self.proc["steps"][e.step]
                 ev["play"] = self._say_line(f"tip_{st_['id']}", st_["tip"])
-                self._hold_until = max(self._hold_until, e.t + self._line_s(f"tip_{st_['id']}"))
             if e.kind == "looking" and self.proc.get("looking"):
                 ev["play"] = self._say_varied("looking", self.proc["looking"])
-            if e.kind == "step_done" and self.proc.get("good") and e.step + 1 < len(self.proc["steps"]):
-                ev["play"] = self._say_varied("good", self.proc["good"])
+            if e.kind == "step_done" and e.step + 1 < len(self.proc["steps"]):
+                # a step the camera cannot actually verify (the wire polarity on the thermocouple) is
+                # acknowledged, never called right: novice runs with reversed wires heard "that looks right"
+                if self.proc["steps"][e.step].get("verifiable", True) is False and self.proc.get("ok"):
+                    ev["play"] = self._say_varied("ok", self.proc["ok"])
+                elif self.proc.get("good"):
+                    ev["play"] = self._say_varied("good", self.proc["good"])
             if e.kind == "warn":
                 ev["play"] = self._say_warn(e.step, e.data.get("what") or "", e.data.get("utterance_id"))
             if e.kind == "complete":
                 ev["play"] = self._say_complete(e.t)
             events.append(ev)
+        # Lines queue on the phone; while they play, a pause is the novice listening, not a done-signal
+        # (novice runs: the step 3 tip fired during step 3's own 19 s instruction, before any wiring)
+        q = max(self._hold_until, t)
+        for ev in events:
+            url = (ev.get("play") or {}).get("url") or ""
+            if "/voice/" in url:
+                q += self._line_s(url.rsplit("/", 1)[1][:-4])
+        if q > t:
+            self._hold_until = q
         # A novice working hands-free hears the current step again after REMIND_S of silence, so the
         # guide never goes quiet while they wait for a check to land
         if any(e.get("play") for e in events):
