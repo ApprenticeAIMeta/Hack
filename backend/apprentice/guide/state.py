@@ -109,6 +109,7 @@ class Tracker:
         self.instructed = False
         self.ahead: int | None = None   # previous locate answer that was past the current step
         self.here = 0                   # consecutive locate answers placing the novice on this step
+        self.unclear_signals = 0
         self.behind = 0                 # consecutive answers NOT past this step; two in a row cancel a pending advance
         self.suspect = False      # one positive mistake check seen; recheck before warning
         self.pending: list[tuple[float, str, int, Handle]] = []  # (asked at, kind, step, handle)
@@ -141,6 +142,7 @@ class Tracker:
 
     def _enter(self, t: float, k: int) -> None:
         self.k, self.ahead, self.suspect, self.here, self.behind = k, None, False, 0, 0
+        self.unclear_signals = 0
         self.entered_t = self.last_seen = t
         # The novice has only just started this step: the first timed check waits FIRST_CHECK_S
         # instead of firing at once (catch3: that check's still waited for the spoken instruction
@@ -204,6 +206,9 @@ class Tracker:
                     if not self.instructed:
                         self.instructed = True
                         self._emit(arrival, "instruct", self.k)
+            elif kind == "mistake" and asked == self.signal_at and res.unclear and self.unclear_signals < 1:
+                self.unclear_signals += 1     # an unclear view holds the step once and asks to be shown it
+                self._emit(arrival, "closer", self.k, what=res.reason)
             elif kind == "mistake" and asked == self.signal_at:
                 if res.yes and not res.unclear and res.confidence >= self.cfg.signal_mistake_conf:
                     self.last_warn = arrival

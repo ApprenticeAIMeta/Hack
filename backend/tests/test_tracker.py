@@ -154,3 +154,17 @@ def test_signal_mode_hands_off_advances_unless_a_mistake_is_seen():
     tr.asked_for, tr.trigger = True, "settle"        # fixed: moves on
     run(tr, 10.5, 13)
     assert tr.k == 1 and [e.step for e in kinds(tr, "step_done")] == [0]
+
+
+def test_signal_mode_an_unclear_view_asks_once_then_moves_on():
+    ask = Scripted()
+    unclear = Check(False, 0.0, "can't see the connector", 0.0, 0.0, unclear=True)
+    ask.mistake = [unclear, unclear]
+    tr = Tracker(RANGES, ask, Config(signal=True))
+    run(tr, 0, 7)
+    tr.asked_for, tr.trigger = True, "settle"
+    run(tr, 7.5, 10)
+    assert tr.k == 0 and [e.data["what"] for e in kinds(tr, "closer")] == ["can't see the connector"]
+    tr.asked_for, tr.trigger = True, "settle"        # still unclear: never stuck, moves on
+    run(tr, 10.5, 13)
+    assert tr.k == 1

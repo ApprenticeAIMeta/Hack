@@ -105,6 +105,27 @@ class SparkPolicy:
         d["_model"] = r.model
         return d, r.latency_s, _cost(r.usage)
 
+    FIND_SCHEMA = {"type": "object", "additionalProperties": False, "properties": {
+        "visible": {"type": "boolean"},
+        "box": {"type": "array", "items": {"type": "integer"}, "description": "x1,y1,x2,y2 on a 0-1000 scale"}},
+        "required": ["visible", "box"]}
+
+    def find_target(self, img: np.ndarray) -> tuple[tuple[int, int, int, int] | None, float]:
+        """Where the procedure's target (procedure.json "target", e.g. the connector the wires go
+        into) is in a photo, in pixels, or None when Spark cannot see it. SAM finds no such part by
+        name; Spark knows what it is and where. About 8-15 s at low effort, so only on a signal."""
+        H, W = img.shape[:2]
+        r = self.client.chat([{"role": "user", "content": [
+            {"type": "text", "text": f"Find {self.proc['target']}. Give a tight box around it on a 0-1000 scale "
+                                     "(x1,y1,x2,y2), or visible=false if it is hidden or out of view."},
+            _jpeg_part(img)]}], model=SPARK, max_tokens=2000, timeout=30, reasoning_effort="low",
+            response_format={"type": "json_schema", "json_schema": {"name": "find", "strict": True, "schema": self.FIND_SCHEMA}})
+        d = json.loads(r.text)
+        b = d.get("box") or []
+        if not d.get("visible") or len(b) != 4 or b[2] <= b[0] or b[3] <= b[1]:
+            return None, _cost(r.usage)
+        return (int(b[0] * W / 1000), int(b[1] * H / 1000), int(b[2] * W / 1000), int(b[3] * H / 1000)), _cost(r.usage)
+
     def ref_crop(self, k: int) -> np.ndarray | None:
         key = 1000 + k
         if key not in self._refs:

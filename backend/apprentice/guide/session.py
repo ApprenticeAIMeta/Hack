@@ -48,6 +48,7 @@ REACQUIRE = 10
 PHOTO_MIN_GAP_S = 6.0   # each still freezes the stream for 2-3 s, so most ticks must not ask for one
 PHOTO_TIMEOUT_S = 6.0   # the phone holds a still up to 2.5 s for the voice line, then 2-3 s to capture
 STILL_FRESH_S = 10.0    # a check asked soon after a still may judge the same still
+TARGET_MIN_FRAC = 0.06      # a target narrower than this fraction of the photo is too far away to judge
 REMIND_S = float(os.environ.get("REMIND_S", "20"))   # repeat the step after this much silence; 0 turns it off
 ASK_TIMEOUT_S = 20.0    # a spoken answer slower than this fails instead of leaving the phone waiting
 SAM_TIMEOUT = httpx.Timeout(6.0, connect=3.0)   # one slow SAM call must not stall the guide (17 s seen live)
@@ -126,6 +127,7 @@ class Session:
         self.voice = {v["turn_id"]: v for s in self.proc["steps"] for v in s["voice"]}
         self.cost = 0.0
         self._intro_said = False
+        self._still_raw: np.ndarray | None = None
         self._hold_until = 0.0
         self._said_t: float | None = None     # last time a line was spoken, for the reminder
         self.capped = False
@@ -241,6 +243,10 @@ class Session:
             if self._stop:
                 raise RuntimeError("session closed")
             view = frame if still is None else still
+            if kind == "mistake" and asked_for and self.proc.get("target") and self.proc["steps"][step].get("inspect"):
+                res = self._target_check(step, self._still_raw if still is not None else frame)
+                res.source = "stream" if still is None else "photo"
+                return res
             res = self.policy.locate(view) if kind == "done" else self.policy.mistake(step, view)
             if kind == "mistake" and res.yes:
                 res = confirm_turned(res, lambda: self.policy.mistake(step, cv2.rotate(view, cv2.ROTATE_90_CLOCKWISE)))
@@ -254,6 +260,30 @@ class Session:
                 self._cv.notify()
         fut.add_done_callback(wake)
         return _FutureHandle(fut)
+
+    def _target_check(self, step: int, img: np.ndarray) -> Check:
+        """A done-signal at a step with an "inspect" line: judge only a clear view of the target.
+        Spark finds the target on the photo; hidden, too small, or under a hand is an unclear view
+        (the guide asks the novice to show it), else the mistake check runs on a tight crop of it."""
+        H, W = img.shape[:2]
+        box, cost = self.policy.find_target(img)
+        if box is None:
+            return Check(False, 0.0, "can't see the connector", 0.0, cost, unclear=True)
+        x1, y1, x2, y2 = box
+        if (x2 - x1) < TARGET_MIN_FRAC * W:
+            return Check(False, 0.0, "connector too small in view", 0.0, cost, unclear=True)
+        hands = [h for h in self._sam(img, "hand") if h[4] >= 0.6]
+        if any(_touches(box, h[:4], margin=0.0) for h in hands):
+            return Check(False, 0.0, "a hand is on the connector", 0.0, cost, unclear=True)
+        pad = 0.6 * max(x2 - x1, y2 - y1)
+        a, b, c, d = int(max(0, x1 - pad)), int(max(0, y1 - pad)), int(min(W, x2 + pad)), int(min(H, y2 + pad))
+        crop = img[b:d, a:c]
+        crop = cv2.resize(crop, (640, round(crop.shape[0] * 640 / crop.shape[1])), interpolation=cv2.INTER_CUBIC)
+        if self.recorder:
+            self.recorder.photo(time.time() - self.t0, cv2.imencode(".jpg", crop)[1].tobytes())
+        res = self.policy.mistake(step, crop)
+        res.cost += cost
+        return res
 
     # -- stills: the stream tracks the work, Spark judges it on a sharper picture when it can -----
 
@@ -298,6 +328,7 @@ class Session:
                 jpeg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1].tobytes()
             if self.recorder:
                 self.recorder.photo(time.time() - self.t0, jpeg)
+            self._still_raw = img
             view = self._view(img, self._still_box(img))
             self._still_view = (time.time(), view)
             return view
@@ -448,6 +479,11 @@ class Session:
                     events.append({"t": e.t, "kind": "intro", "step": 0, "play": self._say_line("intro", self.proc["intro"])})
                     self._hold_until = e.t + self._line_s("intro")   # no reminder while the intro plays
                 ev["play"] = self._say_step(e.step)
+            if e.kind == "closer":
+                i = self._spoken_ids.get("closer")
+                ev["play"] = {"url": f"/api/spoken/{i}.wav" if i else None,
+                              "text": "Hands away, and lean in so I can see the connector."}
+                self._settle.update(armed=True, ticks=0)      # the next clear pause is a new signal
             if e.kind == "warn":
                 ev["play"] = self._say_warn(e.step, e.data.get("what") or "", e.data.get("utterance_id"))
             if e.kind == "complete":
@@ -601,7 +637,8 @@ class Session:
         arrive; used when no cloned line exists for the warning."""
         sp = speaker()
         sp.warm()
-        lines = {"generic_warn": "Stop. Check this against the expert's work before you go on."}
+        lines = {"generic_warn": "Stop. Check this against the expert's work before you go on.",
+                 "closer": "I can't see it clearly. Hands away, and lean in so I can see the connector."}
         for st in self.proc["steps"]:
             for j, m in enumerate(st["known_mistakes"]):
                 lines[f"{st['id']}_warn{j + 1}"] = warn_line(m, st["why"])
