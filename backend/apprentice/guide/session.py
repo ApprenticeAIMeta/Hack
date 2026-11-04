@@ -47,6 +47,7 @@ REACQUIRE = 10
 PHOTO_MIN_GAP_S = 6.0   # each still freezes the stream for 2-3 s, so most ticks must not ask for one
 PHOTO_TIMEOUT_S = 6.0   # the phone holds a still up to 2.5 s for the voice line, then 2-3 s to capture
 STILL_FRESH_S = 10.0    # a check asked soon after a still may judge the same still
+REMIND_S = float(os.environ.get("REMIND_S", "20"))   # repeat the step after this much silence; 0 turns it off
 ASK_TIMEOUT_S = 20.0    # a spoken answer slower than this fails instead of leaving the phone waiting
 SAM_TIMEOUT = httpx.Timeout(6.0, connect=3.0)   # one slow SAM call must not stall the guide (17 s seen live)
 DASH_FPS, DASH_H = 8, 640   # dashboard frames: thinned and downscaled before the base64 fan-out
@@ -117,6 +118,7 @@ class Session:
         self.curve: list[tuple[float, float]] = []
         self.voice = {v["turn_id"]: v for s in self.proc["steps"] for v in s["voice"]}
         self.cost = 0.0
+        self._said_t: float | None = None     # last time a line was spoken, for the reminder
         self.capped = False
         self._latest: tuple[float, np.ndarray] | None = None
         self._decoder: av.CodecContext | None = None
@@ -435,6 +437,16 @@ class Session:
             if e.kind == "warn":
                 ev["play"] = self._say_warn(e.step, e.data.get("what") or "", e.data.get("utterance_id"))
             events.append(ev)
+        # A novice working hands-free hears the current step again after REMIND_S of silence, so the
+        # guide never goes quiet while they wait for a check to land
+        if any(e.get("play") for e in events):
+            self._said_t = t
+        elif (frame is not None and REMIND_S > 0 and not self.tracker.finished and self._said_t is not None
+              and t - self._said_t >= REMIND_S and self.tracker.k < len(self.proc["steps"])):
+            play = self._say_step(self.tracker.k)
+            if play:
+                events.append({"t": round(t, 2), "kind": "remind", "step": self.tracker.k, "play": play})
+                self._said_t = t
         if not events and frame is None:
             return                      # nothing new to say between frames
         if frame is not None:           # a frame tick: the gauge moves (box or not), events alone don't

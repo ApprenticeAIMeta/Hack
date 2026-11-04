@@ -72,6 +72,9 @@ Rules:
   transcription slips; spell out what a novice needs to identify them (a wire's colour or terminal letter).
 - instruction and spoken are said to someone who cannot see the expert: never "like this", "here", "that one" or "this way".
   Say what the result looks like instead (edges matched, tip pointed, wire fully seated).
+- Experts often show a mistake on purpose ("a typical mistake is...", doing it wrong, then undoing it). A demonstrated
+  mistake and its undoing are never steps: the novice must only ever be told the correct way. Fold that stretch of time into
+  the step that does it correctly, and put the mistake and the expert's reason in that step's expert_warnings and why.
 - expert_warnings only holds what the expert actually warned about. Likely mistakes you add yourself go in known_mistakes only.
 - t_start/t_end are seconds in this video. Use the timed transcript below to place boundaries.
 - "why" must come from the expert's words or actions, not general knowledge. Leave it empty rather than invent one.

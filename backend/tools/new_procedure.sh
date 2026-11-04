@@ -29,7 +29,7 @@ stamp "compiling (Voice Transcribe, Muse Spark)"
 # KEYWORDS biases Voice Transcribe toward the trade's words, e.g.
 #   KEYWORDS="thermostat,transformer,24 volt,R wire,C wire,common,contactor" tools/new_procedure.sh ...
 PYTHONPATH=. .venv/bin/python -m apprentice.compile.build "$ROOT/footage/${name}_expert1.mp4" --name "$name" \
-  ${KEYWORDS:+--keywords "$KEYWORDS"} 2>&1 \
+  ${KEYWORDS:+--keywords "$KEYWORDS"} ${RECOMPILE:+--recompile} 2>&1 \
   | grep -vE "Warning|warn|Loading weights|Redirects"
 
 # "workpiece" is SAM's text prompt for tracking, in training and live: it must be a short noun
@@ -56,7 +56,8 @@ stamp "ready: start the guide with procedure \"$name\""
 
 if [ -n "$sample" ]; then
   mkdir -p "$ROOT/out/voice/$name"
-  adb pull "$PHONE/$sample" "$ROOT/out/voice/$name/sample_raw" >/dev/null
+  if [ -f "$sample" ]; then cp "$sample" "$ROOT/out/voice/$name/sample_raw"   # e.g. a clip cut from the expert's take
+  else adb pull "$PHONE/$sample" "$ROOT/out/voice/$name/sample_raw" >/dev/null; fi
   # 16-24 kHz mono, denoised and level-matched: the cleaner the reference, the better the clone
   ffmpeg -v error -y -i "$ROOT/out/voice/$name/sample_raw" -vn -af "afftdn=nf=-28,loudnorm=I=-18:TP=-2" \
     -ac 1 -ar 24000 -t 30 "$ROOT/out/voice/$name/reference.wav"
