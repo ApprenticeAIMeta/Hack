@@ -57,6 +57,7 @@ data class Lens(
     val finished: Boolean = false,
     val note: Note? = null,
     val waiting: String = "Waiting for the glasses",
+    val focus: Int = 0,          // 0 = Check me, 1 = Next step
 )
 
 /** One line above the step: a check in progress, its verdict, a warning or the expert's answer. */
@@ -143,8 +144,17 @@ class LensViewModel(app: Application) : AndroidViewModel(app) {
   // -- Neural Band ------------------------------------------------------------------------------
 
   fun band(gesture: String) {
-    val input = glasses?.services?.input ?: return
+    // The mock's input kit reports Neural Band events but does not move the Display's focus, so
+    // focus is kept here and re-rendered with the renderer's own focus ring (ActionRole.PRIMARY)
+    val l = lens.value
+    val buttons = if (l.step != null && !l.finished) (if (l.step + 1 < l.steps) 2 else 1) else 0
     when (gesture) {
+      "right", "down" -> if (buttons > 1) lens.update { it.copy(focus = 1) }
+      "left", "up" -> lens.update { it.copy(focus = 0) }
+      "pinch" -> if (buttons > 0) { if (l.focus == 1 && buttons > 1) post("/api/goto?step=${l.step!! + 1}") else checkMe() }
+    }
+    val input = glasses?.services?.input
+    if (input != null) when (gesture) {
       "right" -> input.navRight(InputSource.NEURAL_BAND)
       "left" -> input.navLeft(InputSource.NEURAL_BAND)
       "up" -> input.navUp(InputSource.NEURAL_BAND)
@@ -186,24 +196,24 @@ class LensViewModel(app: Application) : AndroidViewModel(app) {
                 text(n.text, style = TextStyle.BODY, color = if (n.strong) TextColor.PRIMARY else TextColor.SECONDARY)
               }
             }
-            flexBox(padding = 20, gap = 6, background = FlexBoxBackground.CARD) {
-              text("Step ${k + 1} of ${l.steps}", style = TextStyle.META, color = TextColor.SECONDARY)
-              text(s.optString("title"), style = TextStyle.HEADING)
-              text(s.optString("instruction"), style = TextStyle.BODY, color = TextColor.SECONDARY)
-            }
-            if (photo != null) {
-              flexBox(gap = 6) {
-                text("Expert's result", style = TextStyle.META, color = TextColor.SECONDARY)
-                image(bitmap = photo, sizePreset = ImageSize.FILL, cornerRadius = CornerRadius.MEDIUM)
+            // one screen, no scrolling: the expert's result beside the step, the instruction is spoken
+            flexBox(direction = Direction.ROW, gap = 14, padding = 16, background = FlexBoxBackground.CARD, crossAlignment = Alignment.CENTER) {
+              if (photo != null)
+                flexBox(flexGrow = 1f) { image(bitmap = photo, sizePreset = ImageSize.FILL, cornerRadius = CornerRadius.MEDIUM) }
+              flexBox(gap = 6, flexGrow = 1.2f) {
+                text("Step ${k + 1} of ${l.steps}", style = TextStyle.META, color = TextColor.SECONDARY)
+                text(s.optString("title"), style = TextStyle.HEADING)
+                if (photo != null) text("Expert's result", style = TextStyle.META, color = TextColor.SECONDARY)
               }
             }
             flexBox(direction = Direction.ROW, alignment = Alignment.CENTER, crossAlignment = Alignment.CENTER) {
               buttonGroup {
-                button("Check me", style = ButtonStyle.PRIMARY, iconName = IconName.EYE,
-                    onClick = { checkMe() }, actionRole = ActionRole.PRIMARY)
+                val next = k + 1 < l.steps && l.focus == 1
+                button("Check me", style = if (next) ButtonStyle.SECONDARY else ButtonStyle.PRIMARY, iconName = IconName.EYE,
+                    onClick = { checkMe() }, actionRole = if (next) null else ActionRole.PRIMARY)
                 if (k + 1 < l.steps)
-                  button("Next step", style = ButtonStyle.SECONDARY, iconName = IconName.ARROW_RIGHT,
-                      onClick = { post("/api/goto?step=${k + 1}") })
+                  button("Next step", style = if (next) ButtonStyle.PRIMARY else ButtonStyle.SECONDARY, iconName = IconName.ARROW_RIGHT,
+                      onClick = { post("/api/goto?step=${k + 1}") }, actionRole = if (next) ActionRole.PRIMARY else null)
               }
             }
           }
@@ -249,7 +259,7 @@ class LensViewModel(app: Application) : AndroidViewModel(app) {
           http.newCall(Request.Builder().url(url).build()).execute().use { r ->
             r.body?.bytes()?.let { b ->
               val full = BitmapFactory.decodeByteArray(b, 0, b.size) ?: return@let null
-              val side = 280                                   // the lens is 600 px across
+              val side = 220                                   // the lens is 600 px across
               val h = (full.height * side / full.width.toFloat()).toInt().coerceAtMost(side)
               Bitmap.createScaledBitmap(full, side, h, true)
             }
@@ -315,7 +325,7 @@ class LensViewModel(app: Application) : AndroidViewModel(app) {
       "state" -> {
         val k = m.optInt("step")
         if (k != lens.value.step && lens.value.step != null) { checking = false; note(null) }
-        lens.update { it.copy(step = k, finished = m.optBoolean("finished")) }
+        lens.update { it.copy(step = k, finished = m.optBoolean("finished"), focus = if (k != it.step) 0 else it.focus) }
         val evs = m.optJSONArray("events") ?: return
         for (i in 0 until evs.length()) {
           val ev = evs.getJSONObject(i)

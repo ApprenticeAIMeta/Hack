@@ -111,6 +111,8 @@ private fun LensScreen(vm: LensViewModel) {
       Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
     } ?: Text("Waiting for the glasses camera", color = Color(0x66FFFFFF), fontFamily = Mono, fontSize = 13.sp,
         modifier = Modifier.align(Alignment.Center))
+    // Ray-Ban Display lenses are transition lenses: indoors they keep a light tint
+    Box(Modifier.fillMaxSize().background(Color(0x47000000)))
     // the lens rim darkens the edge of the view a little, as glasses do
     Canvas(Modifier.fillMaxSize()) {
       drawRect(Brush.radialGradient(listOf(Color.Transparent, Color(0x99000000)),
@@ -118,7 +120,7 @@ private fun LensScreen(vm: LensViewModel) {
     }
 
     // the Display: right eye, a little right of and below the line of sight
-    val side = minOf(maxHeight * 0.66f, maxWidth * 0.42f)
+    val side = minOf(maxHeight * 0.56f, maxWidth * 0.36f)
     Box(
         Modifier
             .size(side)
