@@ -342,7 +342,10 @@ async def device(ws: WebSocket, procedure: str = "airplane", run: str | None = N
         asyncio.run_coroutine_threadsafe(_broadcast(msg), loop)
 
     if _session:
-        _session.close()
+        try:
+            _session.close()
+        except Exception as e:   # a broken old session must never refuse the new connection
+            print(f"device: closing the previous session failed: {e}", flush=True)
     emb = await loop.run_in_executor(None, embedder)
     _session = session = Session(procedure, publish, emb, run=run, lang=lang if re.fullmatch(r"[a-z]{2,3}", lang or "") else "en")
     _device = ws

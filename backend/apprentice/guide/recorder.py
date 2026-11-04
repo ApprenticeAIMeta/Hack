@@ -101,4 +101,5 @@ class Recorder:
                        check=False)
 
     def _write_meta(self) -> None:
+        self.dir.mkdir(parents=True, exist_ok=True)   # the folder may have been removed while recording
         (self.dir / "meta.json").write_text(json.dumps(self.meta, indent=1))
