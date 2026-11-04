@@ -27,16 +27,25 @@ STEP = {
     "additionalProperties": False,
     "properties": {
         "title": {"type": "string", "description": "2-5 word name of the step"},
-        "instruction": {"type": "string", "description": "One imperative sentence a novice can follow"},
-        "why": {"type": "string", "description": "The reason, as the expert states or clearly implies it; empty if none"},
+        "instruction": {"type": "string", "description": "One imperative sentence a novice can follow, in the expert's names for parts"},
+        "spoken": {"type": "string", "description": "What the guide says aloud to the apprentice as this step starts: an imperative "
+                   "addressed to them ('Fold the sheet in half the long way, edges matched.'), never the expert's first person "
+                   "('I will fold'), at most 22 words, no symbols; for a safety step, add the expert's reason"},
+        "why": {"type": "string", "description": "The expert's reason as one short plain sentence (fix filler and grammar, keep the meaning), "
+                "e.g. 'An uneven edge makes the plane pull to one side.' Empty if the expert gave none"},
         "t_start": {"type": "number", "description": "Seconds from the start of the video"},
         "t_end": {"type": "number"},
         "objects": {"type": "array", "items": {"type": "string"},
                     "description": "Short noun phrases for the physical things handled in this step"},
         "done_check": {"type": "string", "description": "What is visibly true of the workpiece when the step is done"},
-        "known_mistakes": {"type": "array", "items": {"type": "string"}},
+        "expert_warnings": {"type": "array", "items": {"type": "string"},
+                            "description": "Mistakes the expert warns about in their own words in this step, each starting with an -ing verb. "
+                            "Empty if the expert warned about nothing"},
+        "known_mistakes": {"type": "array", "items": {"type": "string"},
+                           "description": "Every entry of expert_warnings, then at most two likely mistakes a single photo would show. "
+                           "Each starts with an -ing verb, e.g. 'folding crosswise instead of lengthwise'"},
     },
-    "required": ["title", "instruction", "why", "t_start", "t_end", "objects", "done_check", "known_mistakes"],
+    "required": ["title", "instruction", "spoken", "why", "t_start", "t_end", "objects", "done_check", "expert_warnings", "known_mistakes"],
 }
 
 SCHEMA = {
@@ -57,7 +66,13 @@ Turn it into a procedure a novice wearing the same glasses can follow step by st
 Rules:
 - Steps are contiguous, in order, and cover the whole task. Split where the workpiece changes state, not where the talking pauses.
 - A step is one meaningful change to the workpiece that a novice could check. Merge handling moves (picking up, repositioning, turning over) into the step they serve. Most tasks need 5-10 steps.
-- Ignore setup chatter and anything not part of the task.
+- Ignore chatter and anything not part of the task, but safety actions are always steps: switching off power or a breaker,
+  verifying it is off, protective gear, isolating a part. Never merge or drop one, and put the expert's safety reason in "why".
+- Use the expert's own names for parts, wires, terminals and tools (e.g. "R wire", "C terminal"), corrected for obvious
+  transcription slips; spell out what a novice needs to identify them (a wire's colour or terminal letter).
+- instruction and spoken are said to someone who cannot see the expert: never "like this", "here", "that one" or "this way".
+  Say what the result looks like instead (edges matched, tip pointed, wire fully seated).
+- expert_warnings only holds what the expert actually warned about. Likely mistakes you add yourself go in known_mistakes only.
 - t_start/t_end are seconds in this video. Use the timed transcript below to place boundaries.
 - "why" must come from the expert's words or actions, not general knowledge. Leave it empty rather than invent one.
 - done_check describes the workpiece, so it can be verified from a single frame.

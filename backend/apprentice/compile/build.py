@@ -18,6 +18,7 @@ from pathlib import Path
 from apprentice.capture import media
 from apprentice.capture.frame_gate import score_video
 from apprentice.compile import clips, steps, transcribe
+from apprentice.compile.lines import say_line
 from apprentice.models.meta import MetaClient
 from apprentice.models.speech import speaker
 
@@ -35,6 +36,9 @@ def spark_cost(u: dict) -> float:
 
 def _clamp_steps(raw: list[dict], duration: float) -> list[dict]:
     out, prev_end = [], 0.0
+    # The steps cover the whole recording: experts often work before they first speak (the airplane's
+    # page was torn in the silent first 20 s), so the first step always starts at 0
+    raw = [{**raw[0], "t_start": 0.0}, *raw[1:]] if raw else raw
     for s in raw:
         t0 = min(max(s["t_start"], prev_end), duration)
         t1 = min(max(s["t_end"], t0 + 0.5), duration)
@@ -114,13 +118,13 @@ def build(video: Path, name: str, recompile: bool = False, effort: str = "medium
             media.cut_audio(video, dest / f, t.start, t.end)
             voice.append({"file": f, "start": t.start, "end": t.end, "text": t.text, "turn_id": t.id})
         say = f"clips/{sid}_say.wav"   # the instruction, spoken by MMS-TTS; the expert's clips stay as text
-        (dest / say).write_bytes(speaker().say(s["instruction"]))
+        (dest / say).write_bytes(speaker().say(say_line(s)))
         ref = clips.reference_frame(scores, s["t_start"], s["t_end"])
         ref_file = None
         if ref:
             media.frame_at(video, ref.t, dest / "keyframes" / f"{sid}.jpg")
             ref_file = {"file": f"keyframes/{sid}.jpg", "t": round(ref.t, 2)}
-        out_steps.append({"id": sid, **s, "voice": voice, "say": {"file": say, "text": s["instruction"]},
+        out_steps.append({"id": sid, **s, "voice": voice, "say": {"file": say, "text": say_line(s)},
                           "reference_frame": ref_file})
 
     procedure = {

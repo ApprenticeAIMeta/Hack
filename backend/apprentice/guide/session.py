@@ -30,6 +30,7 @@ import numpy as np
 from meta_sam_parser import FramePrompt, PromptBox, PromptObject, build_object_prompt
 
 from apprentice.capture.frame_gate import LiveGate
+from apprentice.compile.lines import say_line, warn_line
 from apprentice.guide.policy import Check, SparkPolicy
 from apprentice.guide.recorder import Recorder
 from apprentice.guide.state import Tracker, step_ranges
@@ -490,7 +491,7 @@ class Session:
         st = self.proc["steps"][k]
         # The caption is the compiled instruction: the raw transcript line can carry transcription
         # slips ("So I tore off the page from!") that read badly on the phone and in the video
-        caption = self._local_steps.get(st["id"], st)["instruction"] if self.local else st["instruction"]
+        caption = self._local_steps.get(st["id"], st)["instruction"] if self.local else say_line(st)
         url = (self._localized(f"{st['id']}_say") or self._cloned(f"{st['id']}_say")
                or (f"/procedures/{self.name}/{st['say']['file']}" if st.get("say") else None))
         if url:
@@ -528,8 +529,7 @@ class Session:
         lines = {"generic_warn": "Stop. Check this against the expert's work before you go on."}
         for st in self.proc["steps"]:
             for j, m in enumerate(st["known_mistakes"]):
-                lines[f"{st['id']}_warn{j + 1}"] = f"Stop. It looks like you're {m}. " + (
-                    st["why"].capitalize() + "." if st["why"] else "Compare it with the expert's.")
+                lines[f"{st['id']}_warn{j + 1}"] = warn_line(m, st["why"])
         for key, text in lines.items():
             if self._stop:
                 return

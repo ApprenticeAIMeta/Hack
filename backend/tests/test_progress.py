@@ -61,3 +61,12 @@ def test_the_mirror_comes_from_the_same_step(gauge_parts):
     for k in range(len(proc["steps"])):
         times.append(model.mirror(g.label_at((g.show[k] + g.show[k + 1]) / 2), model.runs[-1]))
     assert times == sorted(times)
+
+
+def test_spoken_lines_stay_grammatical():
+    from apprentice.compile.lines import say_line, warn_line
+    assert warn_line("folding crosswise", "") == "Stop. It looks like you're folding crosswise. Compare it with the expert's."
+    assert warn_line("corners not meeting at center", "an even point flies straight.") == \
+        "Stop. Check this: corners not meeting at center. An even point flies straight."
+    assert say_line({"instruction": "Fold it.", "spoken": ""}) == "Fold it."
+    assert say_line({"instruction": "Fold it.", "spoken": "Fold the sheet in half."}) == "Fold the sheet in half."

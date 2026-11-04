@@ -68,12 +68,13 @@ from chatterbox.tts_turbo import ChatterboxTurboTTS
 root, name = Path(os.environ["ROOT"]), os.environ["NAME"]
 proc = json.load(open(root / "procedures" / name / "procedure.json"))
 out = root / "procedures" / name / "voice"; out.mkdir(exist_ok=True)
+import sys; sys.path.insert(0, str(root / "backend"))
+from apprentice.compile.lines import say_line, warn_line   # plain Python, safe in this venv
 lines = {"generic_warn": "Stop. Check this against the expert's work before you go on."}
 for s in proc["steps"]:
-    lines[f"{s['id']}_say"] = s["instruction"]
+    lines[f"{s['id']}_say"] = say_line(s)
     for j, m in enumerate(s["known_mistakes"]):
-        lines[f"{s['id']}_warn{j + 1}"] = f"Stop. It looks like you're {m}. " + (
-            s["why"].capitalize() + "." if s["why"] else "Compare it with the expert's.")
+        lines[f"{s['id']}_warn{j + 1}"] = warn_line(m, s["why"])
 m = ChatterboxTurboTTS.from_pretrained(device="mps" if torch.backends.mps.is_available() else "cpu")
 ref = str(root / "out" / "voice" / name / "reference.wav")
 for k, text in lines.items():

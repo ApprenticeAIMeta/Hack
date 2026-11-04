@@ -17,6 +17,7 @@ import time
 from pathlib import Path
 
 from apprentice.models.meta import SPARK, MetaClient
+from apprentice.compile.lines import say_line
 from apprentice.models.speech import NAMES, speaker
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -46,10 +47,6 @@ SCHEMA = {
 GENERIC = "Stop. Check this against the expert's work before you go on."
 
 
-def warn_line(mistake: str, why: str) -> str:
-    return f"Stop. It looks like you're {mistake}. " + (why.capitalize() + "." if why else "Compare it with the expert's.")
-
-
 def localize(name: str, lang: str, client: MetaClient | None = None) -> Path:
     client = client or MetaClient()
     pdir = ROOT / "procedures" / name
@@ -59,7 +56,7 @@ def localize(name: str, lang: str, client: MetaClient | None = None) -> Path:
         "task": proc["task"],
         "stop": "Stop",
         "generic_warn": GENERIC,
-        "steps": [{"id": s["id"], "title": s["title"], "instruction": s["instruction"], "why": s["why"],
+        "steps": [{"id": s["id"], "title": s["title"], "instruction": say_line(s), "why": s["why"],
                    "known_mistakes": s["known_mistakes"]} for s in proc["steps"]],
     }
     prompt = (f"Translate this procedure for a worker who speaks {language}. These lines are spoken aloud and shown "
