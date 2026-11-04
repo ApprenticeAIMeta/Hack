@@ -87,6 +87,8 @@ function Dashboard() {
   const [report, setReport] = useState(null)
   const [feedSize, setFeedSize] = useState([0, 0])
   const feedRef = useRef(null)
+  const feedImg = useRef(null)
+  const haveFeed = useRef(false)
   const timers = useRef({})
   const soundRef = useRef(sound)
   soundRef.current = sound
@@ -107,7 +109,9 @@ function Dashboard() {
   useSocket('/ws/dashboard', m => {
     if (m.type === 'frame') {
       const src = 'data:image/jpeg;base64,' + m.jpeg
-      setNovice(src)
+      // 8 frames a second: paint the feed directly instead of re-rendering the whole page each time
+      if (feedImg.current) feedImg.current.src = src
+      if (!haveFeed.current) { haveFeed.current = true; setNovice(src) }
       // the blurred backdrop is expensive to repaint, so it follows the feed only every few seconds
       if (performance.now() - backdropAt.current > 3000) { backdropAt.current = performance.now(); setBackdrop(src) }
     }
@@ -115,7 +119,7 @@ function Dashboard() {
     else if (m.type === 'session') {
       const started = m.status === 'started', replay = m.mode === 'replay'
       setStatus({ text: !started ? (replay ? 'Replay ended' : 'Session ended') : replay ? `Replay · ${m.run ?? m.session ?? ''}${m.speed && m.speed !== 1 ? ` · ${m.speed}x` : ''}` : 'Live', live: started && !replay, replay: started && replay })
-      if (started) { setDoneAt({}); setWarnEvents([]); setReport(null); setChecks([]); setCurve([]); setWarns([]); setDone(new Set()); setStep(0); setSaid(null); setWarn(null) }
+      if (started) { haveFeed.current = false; setDoneAt({}); setWarnEvents([]); setReport(null); setChecks([]); setCurve([]); setWarns([]); setDone(new Set()); setStep(0); setSaid(null); setWarn(null) }
     } else if (m.type === 'state') {
       setNow(m.t)
       if (m.progress != null) { setProgress(m.progress); setCurve(c => [...c, [m.t, m.progress]]); flash('dino', 700) }
@@ -268,7 +272,7 @@ function Dashboard() {
               <ul className="min-h-0 flex-1 space-y-1.5 overflow-auto pr-1">
                 <AnimatePresence initial={false}>
                   {checks.map((c, i) => (
-                    <motion.li key={`${c.t}-${i}-${c.kind}`} layout initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
+                    <motion.li key={`${c.t}-${i}-${c.kind}`} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
                       className={`rounded-lg px-2.5 py-1.5 text-xs ${c.warnRow ? 'bg-amber-400/15 text-amber-100' : 'bg-white/[.03]'}`}>
                       <div className="flex items-center gap-2 font-mono text-[11px] text-white/50">
                         <span className="tabular-nums">{fmt(c.t)}</span>
@@ -290,7 +294,7 @@ function Dashboard() {
 
           {/* center: the feed */}
           <section ref={feedRef} className="relative min-h-0">
-            {novice ? <img src={novice} alt="Novice's view from the glasses" className="scan h-full w-full rounded-3xl object-contain" />
+            {novice ? <img ref={feedImg} src={novice} alt="Novice's view from the glasses" className="scan h-full w-full rounded-3xl object-contain" />
               : <div className="grid h-full place-items-center font-mono text-sm tracking-[0.2em] text-white/40">NO SIGNAL · START THE STREAM ON THE PHONE</div>}
             {tracked && (
               <motion.div className="absolute" initial={false} animate={tracked} transition={{ type: 'spring', stiffness: 200, damping: 26 }}>
