@@ -46,3 +46,6 @@ procedures/dryrun/
 !demo/**/*.mp4
 android/.kotlin/
 out/voice/
+
+# Private draft of the submission form answers
+docs/submission-answers.md
