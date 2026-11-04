@@ -276,6 +276,18 @@ def sessions() -> list[dict]:
     return sorted(out, key=lambda r: r["started"] or "", reverse=True)
 
 
+@app.get("/api/recorded/{session}/asks/{name}")
+def recorded_ask(session: str, name: str) -> FileResponse:
+    """A recorded answer's audio, for replays (Recorder.ask)."""
+    if not re.fullmatch(r"[\w-]+", session) or not re.fullmatch(r"\d+\.wav", name):
+        raise HTTPException(400, "bad name")
+    for base in (ROOT / "demo", ROOT / "out" / "sessions"):
+        f = base / session / "asks" / name
+        if f.exists():
+            return FileResponse(f, media_type="audio/wav")
+    raise HTTPException(404, "no such recording")
+
+
 @app.get("/api/spoken/{i}.wav")
 def spoken(i: int) -> Response:
     if _session is None or i not in _session.spoken:
@@ -314,8 +326,12 @@ async def ask(request: Request, lang: str = "en") -> dict:
 
     out = await loop.run_in_executor(None, work)
     if out["answer"]:
-        await _broadcast({"type": "ask", "t": round(time.time() - _session.t0, 2), "step": out["step"],
-                          "question": out["question"], "answer": out["answer"], "url": out["url"]})
+        msg = {"type": "ask", "t": round(time.time() - _session.t0, 2), "step": out["step"],
+               "question": out["question"], "answer": out["answer"], "url": out["url"]}
+        await _broadcast(msg)
+        if _session.recorder:
+            i = int(out["url"].rsplit("/", 1)[1].split(".")[0]) if out["url"] else None
+            _session.recorder.ask(msg, _session.spoken.get(i))
         if _device is not None:
             async with _device_lock:
                 await _device.send_text(json.dumps({"type": "play", "kind": "ask", "url": out["url"], "text": out["answer"]}))

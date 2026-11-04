@@ -56,6 +56,20 @@ class Recorder:
             self._frames.write(json.dumps({"t": round(t, 3), "bytes": len(data)}) + "\n")
             self._units += 1
 
+    def ask(self, msg: dict, wav: bytes | None) -> None:
+        """A spoken question and its answer: the line goes in ticks.jsonl so a replay shows it, and the
+        answer audio is saved beside it (live answers are held only in memory) so a replay plays it."""
+        msg = dict(msg)
+        if wav:
+            d = self.dir / "asks"
+            d.mkdir(exist_ok=True)
+            name = f"{round(msg['t'] * 1000):07d}.wav"
+            (d / name).write_bytes(wav)
+            msg["url"] = f"/api/recorded/{self.dir.name}/asks/{name}"
+        with self._lock:
+            if not self._ticks.closed:
+                self._ticks.write(json.dumps(msg) + "\n")
+
     def photo(self, t: float, jpeg: bytes) -> None:
         d = self.dir / "photos"
         d.mkdir(exist_ok=True)
