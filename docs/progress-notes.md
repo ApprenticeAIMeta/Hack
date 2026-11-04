@@ -1,4 +1,4 @@
-# Progress model notes (Day 3, Oct 27)
+# Progress model notes (Oct 27)
 
 Airplane procedure, 2 expert runs (expert1 122 s, expert2 137 s), novice = 7 fps glasses stream (115 s).
 Frames at 2 fps; SAM 3.1 workpiece crop (track that touches a tracked hand most); DINOv2-small

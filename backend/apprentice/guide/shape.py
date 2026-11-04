@@ -1,4 +1,6 @@
-"""The workpiece's silhouette, from SAM 3.1's mask, and checks that are geometry rather than opinion.
+"""EXPERIMENTAL, not wired into the live guide (see docs/eval.md).
+
+The workpiece's silhouette, from SAM 3.1's mask, and checks that are geometry rather than opinion.
 
 A vision-language model is weak at "does this edge meet that crease" on white paper with hands
 and a busy table in frame. SAM already returns a pixel mask of the paper, so the paper can be cut

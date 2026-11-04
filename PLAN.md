@@ -3,6 +3,15 @@
 Meta Global AI Developer Hackathon, Indie track, problem statement: Push the Frontier.
 Building period Oct 27 to Nov 4 2026. Submission due Nov 4, 9:00 PM ET (target: submitted by 5:00 PM).
 
+> **Status, Nov 4 (written at the end; the plan below is the kickoff plan, unchanged).**
+> Built as planned: compile, progress model on stream-degraded footage, step tracker, live server,
+> dashboard, phone guide, recording and replay. Added during the event: hands-off advancing (SAM
+> hand checks), ask-the-expert by voice, the guide in any language (Spark + MMS-TTS), a step picker,
+> a report card and a cloned expert voice (Chatterbox, disclosed). Not built: the manual diff (no
+> service manual was used) and Glimmer on-lens output. Mistake catching was built but does not
+> work reliably on real stills (docs/eval.md), so the demo's climax moved from the catch to
+> ask-the-expert (docs/video.md).
+
 ## The product in one line
 
 Record an expert doing a physical job once through Meta AI glasses; a novice wearing the same glasses
