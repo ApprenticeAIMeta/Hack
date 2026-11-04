@@ -131,6 +131,7 @@ class Session:
         self.cost = 0.0
         self._intro_said = False
         self._varied: dict[str, int] = {}
+        self._tipped: set[int] = set()        # steps whose tip has been given
         self._hands_on_t = -1e9      # last time a hand was on the work (no reminders while they work)
         self._still_raw: np.ndarray | None = None
         self._find_fut: Future | None = None
@@ -581,6 +582,10 @@ class Session:
             if e.kind == "closer":
                 ev["play"] = self._say_line("closer", self.proc.get("closer") or "Hands away, and lean in so I can see the connector.")
                 self._settle.update(armed=True, ticks=0)      # the next clear pause is a new signal
+            if e.kind == "tip":
+                st_ = self.proc["steps"][e.step]
+                ev["play"] = self._say_line(f"tip_{st_['id']}", st_["tip"])
+                self._hold_until = max(self._hold_until, e.t + self._line_s(f"tip_{st_['id']}"))
             if e.kind == "looking" and self.proc.get("looking"):
                 ev["play"] = self._say_varied("looking", self.proc["looking"])
             if e.kind == "step_done" and self.proc.get("good") and e.step + 1 < len(self.proc["steps"]):
@@ -938,6 +943,13 @@ class Session:
             return      # too early in the step to be a signal: stay armed (novice8 lost its signal here, waited 27 s)
         st["fired"], st["armed"] = t, False
         self.publish({"type": "settled", "t": round(t, 2), "step": self.tracker.k})
+        step = self.proc["steps"][self.tracker.k] if self.tracker.k < len(self.proc["steps"]) else {}
+        if self.tracker.cfg.signal and step.get("tip") and self.tracker.k not in self._tipped and not self.tracker.finished:
+            # a critical step: the first pause gets the expert's check-before-you-commit, not a verdict;
+            # the next pause is checked
+            self._tipped.add(self.tracker.k)
+            self.tracker._emit(t, "tip", self.tracker.k)
+            return
         if self.tracker.cfg.signal and not self.tracker.finished and t - self.tracker.entered_t >= self.tracker.cfg.signal_min_s:
             self.tracker._emit(t, "looking", self.tracker.k)
         self.request_check("settle")
