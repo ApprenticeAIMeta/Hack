@@ -1,0 +1,81 @@
+{
+ "procedure": "airplane",
+ "run": "catch5",
+ "started": "2026-11-03T23:32:44",
+ "stream_fps": 15,
+ "width": 720,
+ "height": 1280,
+ "ended": "2026-11-03T23:37:18",
+ "access_units": 4047,
+ "duration_s": 269.8,
+ "cost_usd": 1.0039,
+ "steps_done": [
+  [
+   39.57,
+   1
+  ],
+  [
+   55.5,
+   2
+  ],
+  [
+   80.69,
+   3
+  ],
+  [
+   102.46,
+   4
+  ],
+  [
+   131.6,
+   5
+  ],
+  [
+   169.79,
+   6
+  ],
+  [
+   182.66,
+   7
+  ]
+ ],
+ "instructions": [
+  [
+   3.34,
+   1,
+   "Tear one page from the notebook then tear off the spiral edge so the sheet is an even rectangle."
+  ],
+  [
+   39.57,
+   2,
+   "Fold the sheet vertically in half bringing the long edges together and crease with the fold on top."
+  ],
+  [
+   55.5,
+   3,
+   "Fold the top right and top left corners inward to the center crease to form two triangles."
+  ],
+  [
+   80.69,
+   4,
+   "Fold each slanted top edge inward again to the center line to form a sharper point."
+  ],
+  [
+   102.46,
+   5,
+   "Fold the whole shape in half along the center crease with the pointed folds on the outside."
+  ],
+  [
+   131.6,
+   6,
+   "Fold each outer slanted edge down to the bottom center fold to create a wing on both sides."
+  ],
+  [
+   169.79,
+   7,
+   "Hold the bottom keel of the airplane and throw it forward to fly it."
+  ]
+ ],
+ "warnings": [],
+ "complete": true
+}

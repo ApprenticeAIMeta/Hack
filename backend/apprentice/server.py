@@ -114,7 +114,11 @@ def mirror(name: str, t: float) -> Response:
     if name not in _mirror:
         from apprentice.progress.model import ProgressModel
         run = ProgressModel.load(ROOT / "procedures" / name / "progress.npz").runs[-1]
-        frames, fps = read_frames(ROOT / "out" / "progress" / f"{run}_2fps.mp4")
+        # The training cache is local; a procedure bundled for replay carries its own copy
+        src = ROOT / "out" / "progress" / f"{run}_2fps.mp4"
+        if not src.exists():
+            src = ROOT / "procedures" / name / "mirror_2fps.mp4"
+        frames, fps = read_frames(src)
         _mirror[name] = (fps, [cv2.imencode(".jpg", f, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes() for f in frames])
     fps, frames = _mirror[name]
     i = min(max(int(round(t * fps)), 0), len(frames) - 1)

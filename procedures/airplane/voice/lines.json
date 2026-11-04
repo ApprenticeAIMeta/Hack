@@ -1,0 +1,21 @@
+{
+ "step_01_say": "Tear one page from the notebook then tear off the spiral edge so the sheet is an even rectangle.",
+ "step_01_warn1": "Stop. It looks like you're tearing unevenly leaving a jagged edge. So that there's no weird sides and the page remains even.",
+ "step_01_warn2": "Stop. It looks like you're tearing more than one page. So that there's no weird sides and the page remains even.",
+ "step_02_say": "Fold the sheet vertically in half bringing the long edges together and crease with the fold on top.",
+ "step_02_warn1": "Stop. It looks like you're folding into unequal halves. Compare it with the expert's.",
+ "step_02_warn2": "Stop. It looks like you're folding crosswise instead of lengthwise. Compare it with the expert's.",
+ "step_03_say": "Fold the top right and top left corners inward to the center crease to form two triangles.",
+ "step_03_warn1": "Stop. It looks like you're corners not meeting at center. Compare it with the expert's.",
+ "step_03_warn2": "Stop. It looks like you're folding lower corners instead of upper. Compare it with the expert's.",
+ "step_04_say": "Fold each slanted top edge inward again to the center line to form a sharper point.",
+ "step_04_warn1": "Stop. It looks like you're folds not aligned to center. Compare it with the expert's.",
+ "step_04_warn2": "Stop. It looks like you're leaving gaps at the tip. Compare it with the expert's.",
+ "step_05_say": "Fold the whole shape in half along the center crease with the pointed folds on the outside.",
+ "step_05_warn1": "Stop. It looks like you're folding inside-out with points inside. Compare it with the expert's.",
+ "step_05_warn2": "Stop. It looks like you're misaligning edges when folding. Compare it with the expert's.",
+ "step_06_say": "Fold each outer slanted edge down to the bottom center fold to create a wing on both sides.",
+ "step_06_warn1": "Stop. It looks like you're folding only one side. To create the flaps.",
+ "step_06_warn2": "Stop. It looks like you're making wings uneven sizes. To create the flaps.",
+ "generic_warn": "Stop. Check this against the expert's work before you go on."
+}
