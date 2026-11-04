@@ -48,6 +48,7 @@ class Config:
     mistake_conf: float = 0.75   # a warning needs two positive mistake checks in a row, at any confidence
     warn_cooldown_s: float = 12.0
     mistake_poll_s: float = 15.0 # also look for mistakes this often while a step is under way
+    first_check_s: float = 4.0   # first timed check after a step begins
 
 
 @dataclass
@@ -124,7 +125,10 @@ class Tracker:
 
     def _enter(self, t: float, k: int) -> None:
         self.k, self.ahead, self.suspect, self.here = k, None, False, 0
-        self.last_ask["done"] = -1e9
+        # The novice has only just started this step: the first timed check waits FIRST_CHECK_S
+        # instead of firing at once (catch3: that check's still waited for the spoken instruction
+        # and held the pipeline for about 10 s at the start of every step)
+        self.last_ask["done"] = t - self.cfg.poll_s + self.cfg.first_check_s
         self.instructed = True          # say the step as it begins; the novice should never wait for a check
         self._emit(t, "instruct", k)
 
@@ -212,7 +216,10 @@ class Tracker:
         # done check: when progress says the step should be ending, or on the fallback poll
         near = p is not None and p >= b - cfg.near_end * (b - a)
         due = t - self.last_ask["done"] >= (cfg.min_gap_s if near or not self.instructed else cfg.poll_s)
-        if (due or self.asked_for) and not self._busy("done"):
+        # A check the novice asked for (hands off, or a tap) runs at once, even with a timed check in
+        # flight; whichever lands first for this step decides, and the other is dropped as stale
+        # (catch3: a hands-off check queued 13 s behind a timed one)
+        if self.asked_for or (due and not self._busy("done")):
             if self.asked_for:
                 self.asked_for = False
                 self.manual_at = t

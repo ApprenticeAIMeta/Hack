@@ -235,12 +235,21 @@ class Session:
             got[0].set()
 
     def _still(self) -> np.ndarray | None:
-        """A fresh still from the glasses cropped to the workpiece, or None to use the stream frame:
-        photos are off, one was taken moments ago or is in flight, or the capture failed."""
-        if not self.photos_on or time.time() - self._photo_last < PHOTO_MIN_GAP_S:
+        """A fresh still from the glasses cropped to the workpiece, or None to use the stream frame
+        (photos off, or the capture failed). A still taken moments ago, or one in flight for another
+        check, is shared rather than skipped, so a hands-off check never falls back to a blurry
+        stream frame because a timed check got to the camera first."""
+        if not self.photos_on:
             return None
+        if time.time() - self._photo_last < PHOTO_MIN_GAP_S:
+            cached = self._still_view
+            return cached[1] if cached and time.time() - cached[0] < STILL_FRESH_S else None
         if not self._photo_lock.acquire(blocking=False):
-            return None
+            if not self._photo_lock.acquire(timeout=PHOTO_TIMEOUT_S + 6):   # wait for the one in flight
+                return None
+            self._photo_lock.release()
+            cached = self._still_view
+            return cached[1] if cached and time.time() - cached[0] < STILL_FRESH_S else None
         try:
             self._photo_last = time.time()
             self._photo_id += 1
