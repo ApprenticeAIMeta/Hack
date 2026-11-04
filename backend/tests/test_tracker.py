@@ -136,3 +136,21 @@ def test_a_mistake_answer_that_disappears_when_the_picture_is_turned_is_dropped(
     assert not dropped.yes and "turned picture disagrees" in dropped.reason
     def boom(): raise TimeoutError
     assert confirm_turned(Check(True, 0.95, "x", 3.0, 0.01), boom).yes
+
+
+def test_signal_mode_hands_off_advances_unless_a_mistake_is_seen():
+    ask = Scripted()
+    bad = Check(True, 0.9, "constantan in the left port", 1.0, 0.0)
+    ok = Check(False, 0.9, "looks right", 1.0, 0.0)
+    ask.mistake = [bad, ok]
+    tr = Tracker(RANGES, ask, Config(signal=True))
+    run(tr, 0, 3)
+    tr.asked_for, tr.trigger = True, "settle"        # too soon after the step began: ignored
+    run(tr, 3.5, 5)
+    assert not ask.asked and tr.k == 0
+    tr.asked_for, tr.trigger = True, "settle"        # wires reversed: warns, stays
+    run(tr, 7, 10)
+    assert tr.k == 0 and [e.data["what"] for e in kinds(tr, "warn")] == ["constantan in the left port"]
+    tr.asked_for, tr.trigger = True, "settle"        # fixed: moves on
+    run(tr, 10.5, 13)
+    assert tr.k == 1 and [e.step for e in kinds(tr, "step_done")] == [0]

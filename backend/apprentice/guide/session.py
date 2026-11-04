@@ -108,7 +108,8 @@ class Session:
         self.pool = ThreadPoolExecutor(4)
         # A procedure can lower the confidence a step check needs (procedure.json "done_conf"):
         # a crowded scene like a wiring rack keeps Spark's answers right but less sure
-        cfg = Config(done_conf=float(self.proc.get("done_conf", Config.done_conf)))
+        cfg = Config(done_conf=float(self.proc.get("done_conf", Config.done_conf)),
+                     signal=self.proc.get("advance_on") == "signal")
         self.tracker = Tracker(step_ranges(self.proc), self._ask, cfg,
                                throw_last=self.proc["steps"][-1].get("final_action") == "throw")
         self.gate = LiveGate(max_fps=2.0)
@@ -224,7 +225,7 @@ class Session:
             # for the voice line, then freezes the stream 2-3 s, which made every check answer 10-15 s
             # after it was asked (catch5). Timed checks judge the 720p stream frame, about 4 s. A
             # mistake check judges the still just taken when there is one.
-            asked_for = kind == "done" and t == self.tracker.manual_at
+            asked_for = (kind == "done" or self.tracker.cfg.signal) and t == self.tracker.manual_at
             if asked_for:
                 still = self._still()
             elif kind == "done":

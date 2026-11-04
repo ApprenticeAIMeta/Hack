@@ -51,6 +51,12 @@ class Config:
     first_check_s: float = 4.0   # first timed check after a step begins
     throw_settle_s: float = 3.0  # the throw step listens only after this long (time to hear it)
     throw_gone_s: float = 1.5    # the plane out of view this long means it was thrown
+    # Signal mode (procedure "advance_on": "signal"): the novice's hands-off pause means "done,
+    # check me". Spark then only looks for a mistake on that photo: none moves on, one warns and
+    # holds the step. For scenes where locating the step from a picture is unreliable (a wiring rack).
+    signal: bool = False
+    signal_min_s: float = 6.0    # a pause this soon after a step starts is not a signal
+    signal_mistake_conf: float = 0.6
 
 
 @dataclass
@@ -112,6 +118,7 @@ class Tracker:
         self.look = False          # a mistake check is wanted now (does not pre-arm the warning)
         self.trigger = ""           # what asked for the pending check: "tap" (phone) or "settle" (hands off)
         self.manual_trigger = ""
+        self.signal_at = -1.0      # when the novice's last done-signal was checked (signal mode)
         self.peak = deque()      # (t, p)
         self.low_ticks = 0
         self.novel_ticks = 0
@@ -190,6 +197,17 @@ class Tracker:
                     if not self.instructed:
                         self.instructed = True
                         self._emit(arrival, "instruct", self.k)
+            elif kind == "mistake" and asked == self.signal_at:
+                if res.yes and not res.unclear and res.confidence >= self.cfg.signal_mistake_conf:
+                    self.last_warn = arrival
+                    self._emit(arrival, "warn", self.k, what=res.reason, utterance_id=res.utterance_id)
+                else:
+                    reason = "novice signalled done; no mistake seen" + (f": {res.reason}" if res.reason else "")
+                    if self.k + 1 >= len(self.ranges):
+                        self._finish(arrival, reason)
+                    else:
+                        self._emit(arrival, "step_done", self.k, reason=reason)
+                        self._enter(arrival, self.k + 1)
             elif kind == "mistake":
                 positive = res.yes and res.confidence >= self.cfg.mistake_conf
                 if positive and self.suspect:
@@ -242,6 +260,15 @@ class Tracker:
             base = float(np.median(self.sims)) if len(self.sims) >= 10 else None
             self.novel_ticks = self.novel_ticks + 1 if base is not None and sim < base - cfg.novelty_drop else 0
             self.sims.append(sim)
+
+        if cfg.signal:
+            if self.asked_for:
+                self.asked_for = False
+                if t - self.entered_t >= cfg.signal_min_s and not self._busy("mistake"):
+                    self.signal_at = self.manual_at = t
+                    self.manual_trigger = self.trigger
+                    self._ask(t, "mistake", frame)
+            return
 
         # done check: when progress says the step should be ending, or on the fallback poll
         near = p is not None and p >= b - cfg.near_end * (b - a)
