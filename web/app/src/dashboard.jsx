@@ -193,7 +193,9 @@ function Dashboard() {
               {status.live ? <LiveDot /> : <span className={`h-2 w-2 rounded-full ${status.replay ? 'bg-cyan-300' : 'bg-white/30'}`} />}
               {status.text.toUpperCase()}
             </span>
-            <span className="font-mono text-xs tabular-nums text-white/50">${cost.toFixed(2)}</span>
+            <span className="font-mono text-xs tabular-nums text-white/50" title="Model calls this run; frames and stills stay on this laptop">
+              ${cost.toFixed(2)} · {checks.filter(c => !c.warnRow).length} checks · {checks.filter(c => c.source === 'photo').length} stills
+            </span>
             <div className="relative">
               <button onClick={() => (picker ? setPicker(null) : openPicker())}
                 className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-xs tracking-wider text-white/70 transition hover:text-white">REPLAY A RUN</button>
