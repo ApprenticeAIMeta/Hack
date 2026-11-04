@@ -60,6 +60,7 @@ DASH_FPS, DASH_H = 8, 640   # dashboard frames: thinned and downscaled before th
 SETTLE_HAND_S = 1.5         # how often SAM looks for hands while the paper is in view
 SETTLE_TICKS = 2            # clear looks in a row (about 1.5-3 s)
 SETTLE_COOLDOWN_S = 8.0     # between hands-off checks until a hand touches the paper again
+SIGNAL_REARM_S = 8.0        # signal mode: still hands-off this long after a check, look again
 SETTLE_REARM_S = 20.0       # hands stay off this long after a settle check: look again (the novice
                             # finished and is waiting for the advance, not pausing mid-work)
 SPEND_CAP_USD = float(os.environ.get("SPEND_CAP_USD", "40"))   # across all sessions of this server
@@ -925,13 +926,16 @@ class Session:
             st["blocked"] += 1
             return
         st["ticks"] += 1
-        if not st["armed"] and t - st["fired"] >= SETTLE_REARM_S:
+        rearm_s = SIGNAL_REARM_S if self.tracker.cfg.signal else SETTLE_REARM_S
+        if not st["armed"] and t - st["fired"] >= rearm_s:
             # thermocouple novice3: the one settle check answered wrong, then the novice stood
             # hands-off and done for 40 s with no recheck, because only a hand back on the work
             # re-arms. A long clear wait means "still waiting", so take another look.
             st["armed"] = True
         if st["ticks"] < SETTLE_TICKS or not st["armed"] or t - st["fired"] < SETTLE_COOLDOWN_S:
             return
+        if self.tracker.cfg.signal and t - self.tracker.entered_t < self.tracker.cfg.signal_min_s:
+            return      # too early in the step to be a signal: stay armed (novice8 lost its signal here, waited 27 s)
         st["fired"], st["armed"] = t, False
         self.publish({"type": "settled", "t": round(t, 2), "step": self.tracker.k})
         if self.tracker.cfg.signal and not self.tracker.finished and t - self.tracker.entered_t >= self.tracker.cfg.signal_min_s:
