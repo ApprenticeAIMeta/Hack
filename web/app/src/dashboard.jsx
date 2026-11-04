@@ -286,6 +286,7 @@ function Dashboard() {
                           : <span className={c.yes ? 'text-emerald-300' : 'text-white/60'}>{c.check === 'locate' ? `sees ${c.completed} done` : c.yes ? 'done' : 'not yet'}</span>}
                         {c.conf != null && <span>{Math.round(c.conf * 100)}%</span>}
                         <span className="flex-1" />
+                        {c.trigger && <span className="text-cyan-200">{c.trigger === 'settle' ? 'hands off' : 'tapped'}</span>}
                         {c.source && <span>{c.source}</span>}
                         {c.latency_s != null && <span className="tabular-nums text-cyan-200">{c.latency_s.toFixed(1)}s</span>}
                       </div>

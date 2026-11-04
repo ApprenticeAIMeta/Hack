@@ -31,6 +31,7 @@ function Guide() {
   const [warn, setWarn] = useState(null)
   const [finished, setFinished] = useState(false)
   const [verdict, setVerdict] = useState(null)   // answer to a check the novice asked for
+  const [picking, setPicking] = useState(false)  // the step list is open
   const [checking, setChecking] = useState(false)
   const [doneAt, setDoneAt] = useState({})
   const [checks, setChecks] = useState([])
@@ -39,6 +40,7 @@ function Guide() {
   const timers = useRef({})
   const stepRef = useRef(null)
   const checkingRef = useRef(false)
+  const pick = k => { setPicking(false); setVerdict(null); fetch(`/api/goto?step=${k}`, { method: 'POST' }).catch(() => {}) }
   const askCheck = () => {
     if (checkingRef.current) return
     checkingRef.current = true; setChecking(true); setVerdict(null)
@@ -48,7 +50,8 @@ function Guide() {
   const later = (key, ms, fn) => { clearTimeout(timers.current[key]); timers.current[key] = setTimeout(fn, ms) }
 
   useSocket('/ws/guide', m => {
-    if (m.type === 'ask') { setSaid({ text: m.answer, q: m.question, live: true }); later('said', 12000, () => setSaid(s => s && { ...s, live: false })) }
+    if (m.type === 'settled') { checkingRef.current = true; setChecking(true); setVerdict(null); later('checking', 20000, () => { checkingRef.current = false; setChecking(false) }) }
+    else if (m.type === 'ask') { setSaid({ text: m.answer, q: m.question, live: true }); later('said', 12000, () => setSaid(s => s && { ...s, live: false })) }
     else if (m.type === 'capped') setWait('Guidance paused: spending limit reached')
     else if (m.type === 'frame') {
       const img = new Image()
@@ -74,7 +77,7 @@ function Guide() {
         if (ev.kind === 'instruct' && ev.play) { setSaid({ text: ev.play.text, live: true }); later('said', SAID_MS, () => setSaid(s => s && { ...s, live: false })) }
         if (ev.kind === 'warn') { setWarn(ev); later('warn', WARN_MS, () => setWarn(null)) }
         if (ev.kind === 'complete') { setWarn(null); setDoneAt(d => ({ ...d, [ev.step]: ev.t })); setFinished(true) }
-        if (ev.kind === 'check' && ev.check === 'done' && checkingRef.current) {
+        if (ev.kind === 'check' && ev.check === 'done' && (checkingRef.current || ev.trigger)) {
           checkingRef.current = false; setChecking(false)
           const ahead = ev.completed != null && ev.completed > ev.step
           setVerdict(ahead ? { text: 'Looks done. Confirming.', conf: ev.conf, ok: true } : { text: ev.unclear ? 'Could not see the work. Look down and try again.' : ev.reason || 'Not finished yet', conf: ev.conf })
@@ -101,10 +104,11 @@ function Guide() {
 
         {s && (
           <div className="absolute inset-0 flex flex-col gap-3 p-3 pt-[max(.75rem,env(safe-area-inset-top))]">
-            <Glass className="p-4">
+            <Glass className="p-4" onClick={() => setPicking(true)} role="button" aria-label="Choose a step">
               <div className="flex items-center gap-3">
                 <span className="font-mono text-xs tracking-wider text-cyan-200">STEP {pad(step + 1)}<span className="text-white/40">/{pad(proc.steps.length)}</span>{proc.language && <span className="ml-2 text-white/40">· {proc.language.toUpperCase()}</span>}</span>
                 <Segments n={proc.steps.length} step={step} finished={finished} className="flex-1" />
+                <span className="font-mono text-[11px] tracking-wider text-white/45">STEPS ▾</span>
               </div>
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.div key={step} initial={{ y: 18, opacity: 0, filter: 'blur(6px)' }} animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
@@ -125,7 +129,7 @@ function Guide() {
             </div>
 
             <motion.div layout className={`flex items-center justify-center gap-2 self-center rounded-full border px-4 py-2 font-mono text-[13px] tracking-wider backdrop-blur-xl ${seen ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100' : 'border-amber-400/50 bg-amber-400/15 text-amber-200'}`}>
-              {seen ? <><LiveDot tone="bg-cyan-300" />TRACKING YOUR WORK</> : frame ? <><LiveDot tone="bg-amber-400" />LOOK DOWN AT YOUR WORK</> : <><span className="h-2 w-2 rounded-full bg-white/30" />NO VIDEO FROM THE GLASSES</>}
+              {seen ? <><LiveDot tone="bg-cyan-300" />{checking ? 'HOLD STILL · CHECKING' : 'DONE? HANDS OFF FOR 2 S'}</> : frame ? <><LiveDot tone="bg-amber-400" />LOOK DOWN AT YOUR WORK</> : <><span className="h-2 w-2 rounded-full bg-white/30" />NO VIDEO FROM THE GLASSES</>}
             </motion.div>
 
             <AnimatePresence>
@@ -140,7 +144,7 @@ function Guide() {
 
             <motion.button whileTap={{ scale: 0.97 }} onClick={askCheck} disabled={checking || finished}
               className={`rounded-2xl py-4 text-xl font-semibold transition ${checking ? 'bg-white/10 text-white/50' : 'bg-cyan-300 text-black'} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200`}>
-              {checking ? 'Checking…' : 'Check my step'}
+              {checking ? 'Checking your work…' : 'Check my step'}
             </motion.button>
 
             <AnimatePresence mode="wait">
@@ -160,6 +164,23 @@ function Guide() {
         )}
 
         <AnimatePresence>
+          {picking && proc && (
+            <motion.div key="picker" className="absolute inset-0 z-30 flex flex-col justify-end bg-black/60 p-3 backdrop-blur-sm"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setPicking(false)}>
+              <Glass className="p-2" initial={{ y: 40 }} animate={{ y: 0 }} onClick={e => e.stopPropagation()}>
+                <p className="px-3 pb-2 pt-2 font-mono text-[11px] tracking-[0.2em] text-white/50">GO TO STEP</p>
+                {proc.steps.map((st, i) => (
+                  <button key={st.id} onClick={() => pick(i)}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left ${i === step ? 'bg-cyan-300/15' : 'hover:bg-white/5'}`}>
+                    <span className={`font-mono text-sm ${i < step ? 'text-emerald-300' : i === step ? 'text-cyan-200' : 'text-white/40'}`}>{pad(i + 1)}</span>
+                    <span className="text-[17px]">{st.title}</span>
+                  </button>
+                ))}
+                <button onClick={() => setPicking(false)} className="mt-1 w-full rounded-xl py-3 text-white/60">Cancel</button>
+              </Glass>
+            </motion.div>
+          )}
+
           {wait && (
             <motion.div key="wait" className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-6 bg-[#030507] px-8 text-center"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>

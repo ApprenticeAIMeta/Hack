@@ -44,6 +44,12 @@ PHOTO_TIMEOUT_S = 8.0   # the phone holds a still until the voice line has finis
 STILL_FRESH_S = 10.0    # a check asked soon after a still may judge the same still
 SAM_TIMEOUT = httpx.Timeout(6.0, connect=3.0)   # one slow SAM call must not stall the guide (17 s seen live)
 DASH_FPS, DASH_H = 8, 640   # dashboard frames: thinned and downscaled before the base64 fan-out
+# "Hands off" is the signal that a step is done: the paper's box holds still, the picture inside it
+# stops changing, and no hand is over it. Then a still is taken and judged, as if Check was tapped.
+SETTLE_IOU = 0.85           # box overlap between consecutive ticks
+SETTLE_DIFF = 7.0           # mean absolute change of the 64x64 grey crop, 0-255
+SETTLE_TICKS = 2            # consecutive still ticks (about 2 s at the measured tick rate)
+SETTLE_COOLDOWN_S = 10.0    # between hands-off checks while the work has not moved
 SPEND_CAP_USD = float(os.environ.get("SPEND_CAP_USD", "10"))   # across all sessions of this server
 
 
@@ -118,6 +124,8 @@ class Session:
         self._last_view: tuple[float, np.ndarray] | None = None    # (t, cropped stream frame) for questions
         self._deliver_due = False      # a check finished; hand it out even if no frame arrives
         self._dash_t = -1e9
+        self._settle = {"box": None, "crop": None, "ticks": 0, "fired": -1e9, "armed": True, "blocked": 0, "diff": None}
+        self._goto: int | None = None
         self.sam_failures = 0
         self.spoken: dict[int, bytes] = {}    # pre-rendered warning lines, served at /api/spoken/<id>.wav
         self._spoken_ids: dict[str, int] = {}
@@ -334,9 +342,12 @@ class Session:
                     return
                 latest, self._latest = self._latest, None
                 self._deliver_due = False
-            if latest is None:          # a check finished while no frame was waiting
+            if latest is None:          # a check finished, or a step was picked, while no frame was waiting
                 t = time.time() - self.t0
                 try:
+                    if self._goto is not None:
+                        k, self._goto = self._goto, None
+                        self.tracker.goto(t, k)
                     self.tracker.deliver(t)
                     self._publish_state(t, None, None, None)
                 except Exception as e:
@@ -369,7 +380,11 @@ class Session:
             view = self._view(frame, box)
             self._last_view = (t, view)
         t_model = time.time()
+        if self._goto is not None:
+            k, self._goto = self._goto, None
+            self.tracker.goto(t, k)
         if box:
+            self._watch_settle(t, frame, box)
             self.tracker.tick(t, p, sim, view)
         else:
             self.tracker.deliver(t)
@@ -397,6 +412,7 @@ class Session:
                       "tick_ms": round(1000 * (time.time() - t_start)), "cost_usd": round(self.cost, 4),
                       "frames_in": self.frames_in, "frames_gated": self.frames_gated,
                       "photos": self.photos_used, "photos_failed": self.photos_failed, "sam_failures": self.sam_failures,
+                      "settle": {k: self._settle[k] for k in ("ticks", "blocked", "diff")},
                       "timing_ms": {"sam": round(1000 * (t_sam - t_start)), "model": round(1000 * (t_model - t_sam)),
                                     "tracker": round(1000 * (time.time() - t_model))}})
 
@@ -516,7 +532,40 @@ class Session:
         return {"question": question, "answer": answer, "url": f"/api/spoken/{i}.wav", "step": k,
                 "latency_s": round(r.latency_s, 2)}
 
-    def request_check(self) -> None:
-        """The novice asked for a check: take a fresh still and ask Spark on the next frame."""
+    def request_check(self, trigger: str = "tap") -> None:
+        """A check was asked for (the phone's button, or the novice taking their hands off): take a
+        fresh still and ask Spark on the next frame."""
         self._photo_last = -1e9
+        self.tracker.trigger = trigger
         self.tracker.asked_for = True
+
+    def request_goto(self, k: int) -> None:
+        """The novice picked a step on the phone; applied on the worker thread."""
+        with self._cv:
+            self._goto = k
+            self._deliver_due = True
+            self._cv.notify()
+
+    def _watch_settle(self, t: float, frame: np.ndarray, box: tuple) -> None:
+        """Ask for a check when the work has been put down and left alone."""
+        st = self._settle
+        g = cv2.cvtColor(cv2.resize(crop(frame, box), (64, 64), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2GRAY).astype(np.float32)
+        st["diff"] = round(float(np.abs(g - st["crop"]).mean()), 1) if st["crop"] is not None else None
+        still = (st["box"] is not None and _iou(st["box"], box) >= SETTLE_IOU and st["diff"] <= SETTLE_DIFF)
+        st["box"], st["crop"] = box, g
+        if not still:
+            st["ticks"], st["armed"] = 0, True     # it moved: the next pause counts again
+            return
+        st["ticks"] += 1
+        if (st["ticks"] < SETTLE_TICKS or not st["armed"] or t - st["fired"] < SETTLE_COOLDOWN_S
+                or t - st.get("hand_t", -1e9) < 2.5):  # one hand check every 2.5 s while hands rest on it
+            return
+        st["hand_t"] = t
+        # A hand clearly on the paper blocks; one resting beside it, or a faint detection, does not
+        hands = [h for h in self._sam(frame, "hand") if h[4] >= 0.6]
+        if any(_touches(box, h[:4], margin=0.0) for h in hands):
+            st["blocked"] += 1
+            return
+        st["fired"], st["armed"] = t, False
+        self.publish({"type": "settled", "t": round(t, 2), "step": self.tracker.k})
+        self.request_check("settle")

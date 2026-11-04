@@ -101,6 +101,8 @@ class Tracker:
         self.asked_for = False     # the novice pressed "check my step": ask now, skipping the gaps
         self.manual_at = -1.0      # when that check was asked; its answer needs no progress agreement
         self.look = False          # a mistake check is wanted now (does not pre-arm the warning)
+        self.trigger = ""           # what asked for the pending check: "tap" (phone) or "settle" (hands off)
+        self.manual_trigger = ""
         self.peak = deque()      # (t, p)
         self.low_ticks = 0
         self.novel_ticks = 0
@@ -140,7 +142,8 @@ class Tracker:
         for asked, kind, step, (arrival, res) in sorted(due, key=lambda x: x[3][0]):
             self._emit(arrival, "check", step, check=kind, asked=round(asked, 2), yes=res.yes, completed=res.completed,
                        unclear=res.unclear, conf=res.confidence, reason=res.reason, source=res.source,
-                       latency_s=round(res.latency_s, 2), cost=res.cost)
+                       latency_s=round(res.latency_s, 2), cost=res.cost,
+                       trigger=self.manual_trigger if asked == self.manual_at else "")
             if step != self.k or self.finished:
                 continue                                  # stale: we moved on
             if kind == "done":
@@ -211,6 +214,7 @@ class Tracker:
             if self.asked_for:
                 self.asked_for = False
                 self.manual_at = t
+                self.manual_trigger = self.trigger
                 self.look = True             # and look for a mistake on the same still
             self._ask(t, "done", frame)
 
@@ -222,6 +226,15 @@ class Tracker:
             self._ask(t, "mistake", frame)
             self.look = False
             self.low_ticks = self.novel_ticks = 0
+
+    def goto(self, t: float, k: int) -> None:
+        """The novice picked a step on the phone: move there, say it, and forget checks in flight."""
+        k = max(0, min(len(self.ranges) - 1, k))
+        self.finished = False
+        self.pending = []
+        self.peak.clear()
+        self._emit(t, "goto", k)
+        self._enter(t, k)
 
     def deliver(self, t: float) -> None:
         """Hand out finished checks when there is no frame to tick on (workpiece out of view, SAM

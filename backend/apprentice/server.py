@@ -296,6 +296,15 @@ async def ask(request: Request, lang: str = "en") -> dict:
     return out
 
 
+@app.post("/api/goto")
+def goto(step: int) -> dict:
+    """The novice picked a step on the phone (step is 0-based)."""
+    if _session is None or _device is None:
+        raise HTTPException(409, "no live session")
+    _session.request_goto(step)
+    return {"ok": True, "step": step}
+
+
 @app.post("/api/check")
 def check() -> dict:
     """The novice's "check my step" button."""
