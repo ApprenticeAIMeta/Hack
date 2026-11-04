@@ -18,6 +18,7 @@ import re
 import subprocess
 import threading
 import time
+import struct
 import wave
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
@@ -124,6 +125,8 @@ class Session:
         self.curve: list[tuple[float, float]] = []
         self.voice = {v["turn_id"]: v for s in self.proc["steps"] for v in s["voice"]}
         self.cost = 0.0
+        self._intro_said = False
+        self._hold_until = 0.0
         self._said_t: float | None = None     # last time a line was spoken, for the reminder
         self.capped = False
         self._latest: tuple[float, np.ndarray] | None = None
@@ -439,6 +442,11 @@ class Session:
             if e.kind == "check":
                 self.cost += e.data.get("cost") or 0.0
             if e.kind == "instruct":
+                if e.step == 0 and not self._intro_said and self.proc.get("intro"):
+                    # the expert's introduction to the task, once, ahead of the first step
+                    self._intro_said = True
+                    events.append({"t": e.t, "kind": "intro", "step": 0, "play": self._say_line("intro", self.proc["intro"])})
+                    self._hold_until = e.t + self._line_s("intro")   # no reminder while the intro plays
                 ev["play"] = self._say_step(e.step)
             if e.kind == "warn":
                 ev["play"] = self._say_warn(e.step, e.data.get("what") or "", e.data.get("utterance_id"))
@@ -450,7 +458,7 @@ class Session:
         if any(e.get("play") for e in events):
             self._said_t = t
         elif (frame is not None and REMIND_S > 0 and not self.tracker.finished and self._said_t is not None
-              and t - self._said_t >= REMIND_S and self.tracker.k < len(self.proc["steps"])):
+              and t - self._said_t >= REMIND_S and t >= self._hold_until and self.tracker.k < len(self.proc["steps"])):
             play = self._say_step(self.tracker.k)
             if play:
                 events.append({"t": round(t, 2), "kind": "remind", "step": self.tracker.k, "play": play})
@@ -541,10 +549,38 @@ class Session:
         i = self._spoken_ids.get(key) or self._spoken_ids.get("generic_warn")
         return {"url": f"/api/spoken/{i}.wav" if i else None, "text": text}
 
+    def _line_s(self, name: str) -> float:
+        """Length of a pre-rendered voice line in seconds (0 if there is none)."""
+        # The cloned lines are 32-bit float WAVs, which the wave module cannot open: read the header
+        f = self.dir / "voice" / f"{name}.wav"
+        try:
+            raw = f.read_bytes()
+            i = raw.index(b"fmt ")
+            rate, byte_rate = struct.unpack("<II", raw[i + 12:i + 20])
+            j = raw.index(b"data")
+            return struct.unpack("<I", raw[j + 4:j + 8])[0] / byte_rate
+        except Exception:
+            return 0.0
+
+    def _say_line(self, name: str, text: str) -> dict:
+        """A fixed procedure line (intro, complete): the expert's cloned voice when rendered
+        (voice/<name>.wav), else synthesized now."""
+        url = self._cloned(name)
+        if url:
+            return {"url": url, "text": text}
+        try:
+            i = len(self.spoken) + 1
+            self.spoken[i] = speaker().say(text)
+            return {"url": f"/api/spoken/{i}.wav", "text": text}
+        except Exception:
+            return {"url": None, "text": text}
+
     def _say_complete(self, t: float) -> dict | None:
-        """The wrap-up once the last step lands: well done, the run's stats, and the one thing to
-        remember. Synthesized on the spot (the MMS model is warm from _prerender): the stats are
-        only known now, so this line cannot be pre-rendered."""
+        """The wrap-up once the last step lands: the procedure's own closing line in the expert's
+        voice when it has one, else well done, the run's stats, and the one thing to remember,
+        synthesized on the spot (the stats are only known now)."""
+        if self.proc.get("complete"):
+            return self._say_line("complete", self.proc["complete"])
         warns = sum(1 for e in self.tracker.events if e.kind == "warn")
         mins = t / 60
         stats = (f"You took {mins:.0f} minute{'s' if mins >= 1.5 else ''}"

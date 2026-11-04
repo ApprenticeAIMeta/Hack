@@ -599,5 +599,7 @@
  },
  "done_conf": 0.45,
  "advance_on": "signal",
- "takeaway": "the gold copper wire goes in the left port, and the silver constantan wire in the right. Swap them, and every temperature reads backwards."
+ "takeaway": "the gold copper wire goes in the left port, and the silver constantan wire in the right. Swap them, and every temperature reads backwards.",
+ "intro": "Today we'll use a thermocouple to measure temperature. It reads the tiny voltage where two different metals join: the golden copper wire and the silver constantan. We connect it to a channel on this controller and read the temperature off in LabVIEW. Rigs like this one run on these readings, so a clean connection matters. Let's wire one up.",
+ "complete": "Done, good job! Now check the display: your channel should read the same temperature as the others. And remember: gold copper on the left, silver constantan on the right. Swap them, and the readings run backwards."
 }
