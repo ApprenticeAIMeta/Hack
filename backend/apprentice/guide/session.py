@@ -33,7 +33,7 @@ from apprentice.capture.frame_gate import LiveGate
 from apprentice.compile.lines import say_line, warn_line
 from apprentice.guide.policy import Check, SparkPolicy
 from apprentice.guide.recorder import Recorder
-from apprentice.guide.state import Tracker, step_ranges
+from apprentice.guide.state import Config, Tracker, step_ranges
 from apprentice.models.meta import SAM, SPARK as SPARK_MODEL, MetaClient
 from apprentice.models.speech import speaker
 from apprentice.progress.crop import _touches, crop, parse_lines
@@ -106,7 +106,10 @@ class Session:
         self.policy = SparkPolicy(self.dir, self.client)
         self.embedder = embedder
         self.pool = ThreadPoolExecutor(4)
-        self.tracker = Tracker(step_ranges(self.proc), self._ask,
+        # A procedure can lower the confidence a step check needs (procedure.json "done_conf"):
+        # a crowded scene like a wiring rack keeps Spark's answers right but less sure
+        cfg = Config(done_conf=float(self.proc.get("done_conf", Config.done_conf)))
+        self.tracker = Tracker(step_ranges(self.proc), self._ask, cfg,
                                throw_last=self.proc["steps"][-1].get("final_action") == "throw")
         self.gate = LiveGate(max_fps=2.0)
         self.recorder = Recorder(procedure, run, len(self.proc["steps"])) if record else None
