@@ -94,7 +94,7 @@
    "id": "step_02",
    "done_check": "First slot thermocouple module with empty 16th channel ports is visible.",
    "expert_warnings": [],
-   "instruction": "Select the empty 16th channel in the first slot thermocouple module of the controller.",
+   "instruction": "Find channel 16: the empty slot at the end of the first thermocouple module.",
    "known_mistakes": [
     "selecting the analog input AI module instead of the thermocouple module"
    ],
@@ -102,10 +102,10 @@
     "controller",
     "thermocouple module"
    ],
-   "spoken": "Find the empty sixteenth channel in the first slot thermocouple module.",
+   "spoken": "Find channel sixteen: the empty slot at the end of the first thermocouple module.",
    "t_end": 68.0,
    "t_start": 32.8,
-   "title": "Locate Target Channel",
+   "title": "Find Channel 16",
    "why": "",
    "voice": [
     {
@@ -175,7 +175,7 @@
     "crop": "keyframes/step_02_crop.jpg",
     "source": "builder photo 20261104_141142_0001cb28.jpg, re-shot following the expert's procedure (expert's frame kept in keyframes/expert/)"
    },
-   "show": "Then look straight at that empty channel, with your hands out of view."
+   "show": "When you've found it, look straight at it with your hands down."
   },
   {
    "done_check": "a small flat screwdriver lies next to the thermocouple connector",
