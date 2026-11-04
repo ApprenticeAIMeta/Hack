@@ -50,6 +50,7 @@ PHOTO_TIMEOUT_S = 6.0   # the phone holds a still up to 2.5 s for the voice line
 STILL_FRESH_S = 10.0    # a check asked soon after a still may judge the same still
 TARGET_REFIND_S = 15.0      # Spark re-finds the target this often, so a SAM track cannot drift for long
 TARGET_MIN_FRAC = 0.06      # a target narrower than this fraction of the photo is too far away to judge
+REMIND_QUIET_S = 6.0        # no reminder within this long of a hand on the work: they are busy, not stuck
 REMIND_S = float(os.environ.get("REMIND_S", "20"))   # repeat the step after this much silence; 0 turns it off
 ASK_TIMEOUT_S = 20.0    # a spoken answer slower than this fails instead of leaving the phone waiting
 SAM_TIMEOUT = httpx.Timeout(6.0, connect=3.0)   # one slow SAM call must not stall the guide (17 s seen live)
@@ -128,6 +129,8 @@ class Session:
         self.voice = {v["turn_id"]: v for s in self.proc["steps"] for v in s["voice"]}
         self.cost = 0.0
         self._intro_said = False
+        self._good_n = 0
+        self._hands_on_t = -1e9      # last time a hand was on the work (no reminders while they work)
         self._still_raw: np.ndarray | None = None
         self._find_fut: Future | None = None
         self._find_t = -1e9
@@ -561,12 +564,19 @@ class Session:
                     self._intro_said = True
                     events.append({"t": e.t, "kind": "intro", "step": 0, "play": self._say_line("intro", self.proc["intro"])})
                     self._hold_until = e.t + self._line_s("intro")   # no reminder while the intro plays
+                    if self.proc.get("presence"):    # the guide is there with them: how to show it a finished step
+                        events.append({"t": e.t, "kind": "presence", "step": 0, "play": self._say_line("presence", self.proc["presence"])})
+                        self._hold_until += self._line_s("presence")
                 ev["play"] = self._say_step(e.step)
             if e.kind == "closer":
-                i = self._spoken_ids.get("closer")
-                ev["play"] = {"url": f"/api/spoken/{i}.wav" if i else None,
-                              "text": "Hands away, and lean in so I can see the connector."}
+                ev["play"] = self._say_line("closer", self.proc.get("closer") or "Hands away, and lean in so I can see the connector.")
                 self._settle.update(armed=True, ticks=0)      # the next clear pause is a new signal
+            if e.kind == "looking" and self.proc.get("looking"):
+                ev["play"] = self._say_line("looking", self.proc["looking"])
+            if e.kind == "step_done" and self.proc.get("good") and e.step + 1 < len(self.proc["steps"]):
+                j = self._good_n % len(self.proc["good"])
+                self._good_n += 1
+                ev["play"] = self._say_line(f"good_{j + 1}", self.proc["good"][j])
             if e.kind == "warn":
                 ev["play"] = self._say_warn(e.step, e.data.get("what") or "", e.data.get("utterance_id"))
             if e.kind == "complete":
@@ -577,7 +587,8 @@ class Session:
         if any(e.get("play") for e in events):
             self._said_t = t
         elif (frame is not None and REMIND_S > 0 and not self.tracker.finished and self._said_t is not None
-              and t - self._said_t >= REMIND_S and t >= self._hold_until and self.tracker.k < len(self.proc["steps"])):
+              and t - self._said_t >= REMIND_S and t >= self._hold_until and t - self._hands_on_t >= REMIND_QUIET_S
+              and self.tracker.k < len(self.proc["steps"])):
             play = self._say_step(self.tracker.k)
             if play:
                 events.append({"t": round(t, 2), "kind": "remind", "step": self.tracker.k, "play": play})
@@ -847,6 +858,8 @@ class Session:
         for hands every SETTLE_HAND_S; two clear looks in a row fire one check, and a hand coming
         back re-arms it."""
         st = self._settle
+        if t < self._hold_until:                     # still introducing the task: not a done-signal yet
+            return
         if st.get("step") != self.tracker.k:        # a new step: the next pause counts
             st.update(step=self.tracker.k, armed=True, ticks=0, fired=-1e9)
         if t - st.get("hand_t", -1e9) < SETTLE_HAND_S:
@@ -862,6 +875,7 @@ class Session:
                 self.tracker._emit(t, "closer", self.tracker.k, what="too far from the connector")
             return
         if on_paper:
+            self._hands_on_t = t
             st["ticks"], st["armed"] = 0, True
             st["blocked"] += 1
             return
@@ -875,6 +889,8 @@ class Session:
             return
         st["fired"], st["armed"] = t, False
         self.publish({"type": "settled", "t": round(t, 2), "step": self.tracker.k})
+        if self.tracker.cfg.signal and t - self.tracker.entered_t >= self.tracker.cfg.signal_min_s:
+            self.tracker._emit(t, "looking", self.tracker.k)
         self.request_check("settle")
 
 

@@ -604,5 +604,12 @@
  "takeaway": "the gold copper wire goes in the left port, and the silver constantan wire in the right. Swap them, and every temperature reads backwards.",
  "intro": "Today we'll use a thermocouple to measure temperature. It reads the tiny voltage where two different metals join: the golden copper wire and the silver constantan. We connect it to a channel on this controller and read the temperature off in LabVIEW. Rigs like this one run on these readings, so a clean connection matters. Let's wire one up.",
  "complete": "Done, good job! Now check the display: your channel should read the same temperature as the others. And remember: gold copper on the left, silver constantan on the right. Swap them, and the readings run backwards.",
- "target": "the one orange-and-black screw terminal connector the person is working on: the one where the loose thermocouple wire ends go in, at the person's hands or the screwdriver, not the other identical connectors on the rack"
+ "target_desc": "the one orange-and-black screw terminal connector the person is working on: the one where the loose thermocouple wire ends go in, at the person's hands or the screwdriver, not the other identical connectors on the rack",
+ "presence": "I'm right here with you, watching through your glasses. When you finish a step, take your hands away and lean in, so I can see it.",
+ "looking": "Okay, let me take a look.",
+ "good": [
+  "That looks right.",
+  "Nice, that's it."
+ ],
+ "closer": "I can't quite see it. Take your hands away and lean in, so I can see the connector."
 }
