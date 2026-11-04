@@ -4,6 +4,7 @@ import { AnimatePresence, MotionConfig, motion, useSpring, useTransform } from '
 import './index.css'
 import { PROCEDURE, fmt, useProcedure, useSocket } from './shared.js'
 import { Brackets, Glass, LiveDot, Segments, Waves, placeBox } from './hud.jsx'
+import { ReportCard, summarize } from './report.jsx'
 
 // The laptop view for the video: the glasses' feed in the middle with the tracked workpiece,
 // the expert at the same point in the task, the progress model's live reading, and every
@@ -81,6 +82,9 @@ function Dashboard() {
   const [checks, setChecks] = useState([])
   const [picker, setPicker] = useState(null)
   const [speed, setSpeed] = useState(2)
+  const [doneAt, setDoneAt] = useState({})
+  const [warnEvents, setWarnEvents] = useState([])
+  const [report, setReport] = useState(null)
   const [feedSize, setFeedSize] = useState([0, 0])
   const feedRef = useRef(null)
   const timers = useRef({})
@@ -111,7 +115,7 @@ function Dashboard() {
     else if (m.type === 'session') {
       const started = m.status === 'started', replay = m.mode === 'replay'
       setStatus({ text: !started ? (replay ? 'Replay ended' : 'Session ended') : replay ? `Replay · ${m.run ?? m.session ?? ''}${m.speed && m.speed !== 1 ? ` · ${m.speed}x` : ''}` : 'Live', live: started && !replay, replay: started && replay })
-      if (started) { setChecks([]); setCurve([]); setWarns([]); setDone(new Set()); setStep(0); setSaid(null); setWarn(null) }
+      if (started) { setDoneAt({}); setWarnEvents([]); setReport(null); setChecks([]); setCurve([]); setWarns([]); setDone(new Set()); setStep(0); setSaid(null); setWarn(null) }
     } else if (m.type === 'state') {
       setNow(m.t)
       if (m.progress != null) { setProgress(m.progress); setCurve(c => [...c, [m.t, m.progress]]); flash('dino', 700) }
@@ -121,7 +125,7 @@ function Dashboard() {
       setStep(m.step); setCost(m.cost_usd)
       setDone(d => {
         const n = new Set(d)
-        for (const ev of m.events) if (ev.kind === 'step_done' || ev.kind === 'complete') n.add(ev.step)
+        for (const ev of m.events) if (ev.kind === 'step_done' || ev.kind === 'complete') { n.add(ev.step); setDoneAt(d => ({ ...d, [ev.step]: ev.t })) }
         if (m.finished && proc) proc.steps.forEach((_, i) => n.add(i))
         return n
       })
@@ -131,6 +135,7 @@ function Dashboard() {
           setChecks(c => [ev, ...c].slice(0, 60))
         }
         if (ev.kind === 'warn') {
+          setWarnEvents(w => [...w, ev])
           setChecks(c => [{ ...ev, warnRow: true }, ...c].slice(0, 60))
           setWarns(w => [...w, ev.t]); setWarn(ev)
           clearTimeout(timers.current.warn); timers.current.warn = setTimeout(() => setWarn(null), 9000)
@@ -145,6 +150,10 @@ function Dashboard() {
   })
 
   useEffect(() => { if (new URLSearchParams(location.search).has('demo')) fetch('/api/demo', { method: 'POST' }) }, [])
+  const finishedRun = proc && doneAt[proc.steps.length - 1] != null
+  useEffect(() => {
+    if (finishedRun && !report) setReport(summarize(proc, doneAt, checks.filter(c => !c.warnRow), warnEvents, cost))
+  }, [finishedRun]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openPicker = () => fetch('/api/sessions').then(r => r.json()).then(setPicker).catch(() => setPicker([]))
   const replay = name => { setPicker(null); fetch(`/api/demo?session=${encodeURIComponent(name)}&speed=${speed}`, { method: 'POST' }) }
@@ -164,6 +173,13 @@ function Dashboard() {
           animate={{ boxShadow: warn ? ['inset 0 0 0 3px rgba(251,191,36,.9), inset 0 0 140px rgba(251,191,36,.35)', 'inset 0 0 0 3px rgba(251,191,36,.35), inset 0 0 50px rgba(251,191,36,.12)'] : 'inset 0 0 0 0 rgba(0,0,0,0)' }}
           transition={warn ? { duration: 0.8, repeat: Infinity, repeatType: 'mirror' } : { duration: 0.3 }} />
 
+        <AnimatePresence>
+          {report && (
+            <motion.div key="report" className="absolute inset-0 z-40 grid place-items-center bg-black/50 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <ReportCard report={report} onClose={() => setReport(null)} />
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div className="relative grid h-full grid-cols-[300px_minmax(0,1fr)_340px] grid-rows-[auto_minmax(0,1fr)_auto] gap-4 p-5">
           {/* top bar */}
           <header className="col-span-3 flex items-center gap-4">

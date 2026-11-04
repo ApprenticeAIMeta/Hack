@@ -29,7 +29,8 @@ export function useSocket(path, onMessage) {
 
 export const refUrl = (proc, k, which = 'crop') => {
   const rf = proc?.steps[k]?.reference_frame
-  return rf?.[which] ? `/procedures/${PROCEDURE}/${rf[which]}` : ''
+  const f = rf?.[which] || rf?.file   // the crop appears after training; the full frame is there from the compile
+  return f ? `/procedures/${PROCEDURE}/${f}` : ''
 }
 
 export const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`

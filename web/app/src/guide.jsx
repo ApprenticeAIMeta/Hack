@@ -4,6 +4,7 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import './index.css'
 import { drawCrop, refUrl, useProcedure, useSocket } from './shared.js'
 import { Brackets, Glass, LiveDot, Segments, Waves } from './hud.jsx'
+import { ReportCard, summarize } from './report.jsx'
 
 // The novice's phone, propped beside the work. It shows the expert only: the step, what done
 // looks like, and the expert's words. The novice's own view appears when there is a mistake.
@@ -31,6 +32,10 @@ function Guide() {
   const [finished, setFinished] = useState(false)
   const [verdict, setVerdict] = useState(null)   // answer to a check the novice asked for
   const [checking, setChecking] = useState(false)
+  const [doneAt, setDoneAt] = useState({})
+  const [checks, setChecks] = useState([])
+  const [warns, setWarns] = useState([])
+  const [cost, setCost] = useState(0)
   const timers = useRef({})
   const stepRef = useRef(null)
   const checkingRef = useRef(false)
@@ -50,7 +55,7 @@ function Guide() {
       img.src = 'data:image/jpeg;base64,' + m.jpeg
     } else if (m.type === 'session') {
       if (m.status === 'started') {
-        stepRef.current = null; setStep(null); setLost(0); setWarn(null); setSaid(null); setFinished(false); setWait('Starting')
+        stepRef.current = null; setStep(null); setLost(0); setDoneAt({}); setChecks([]); setWarns([]); setCost(0); setWarn(null); setSaid(null); setFinished(false); setWait('Starting')
       } else setWait('Session ended')
     } else if (m.type === 'state') {
       setWait(null)
@@ -60,11 +65,14 @@ function Guide() {
       if (stepRef.current !== m.step) { setSaid(null); setWarn(null) }
       stepRef.current = m.step
       setStep(m.step)
+      if (m.cost_usd != null) setCost(m.cost_usd)
       for (const ev of m.events) {
-        if (ev.kind === 'step_done') { setPassed(ev.step); later('passed', PASSED_MS, () => setPassed(null)) }
+        if (ev.kind === 'check') setChecks(c => [...c, ev])
+        if (ev.kind === 'warn') setWarns(w => [...w, ev])
+        if (ev.kind === 'step_done') { setDoneAt(d => ({ ...d, [ev.step]: ev.t })); setPassed(ev.step); later('passed', PASSED_MS, () => setPassed(null)) }
         if (ev.kind === 'instruct' && ev.play) { setSaid({ text: ev.play.text, live: true }); later('said', SAID_MS, () => setSaid(s => s && { ...s, live: false })) }
         if (ev.kind === 'warn') { setWarn(ev); later('warn', WARN_MS, () => setWarn(null)) }
-        if (ev.kind === 'complete') { setWarn(null); setFinished(true) }
+        if (ev.kind === 'complete') { setWarn(null); setDoneAt(d => ({ ...d, [ev.step]: ev.t })); setFinished(true) }
         if (ev.kind === 'check' && ev.check === 'done' && checkingRef.current) {
           checkingRef.current = false; setChecking(false)
           const ahead = ev.completed != null && ev.completed > ev.step
@@ -207,11 +215,11 @@ function Guide() {
           )}
 
           {finished && proc && (
-            <motion.div key="finished" className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-[#030507]/85 px-8 text-center backdrop-blur-xl"
+            <motion.div key="finished" className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 overflow-auto bg-[#030507]/85 px-4 py-8 text-center backdrop-blur-xl"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <p className="font-mono text-sm tracking-[0.2em] text-emerald-300">PROCEDURE COMPLETE</p>
-              <h1 className="text-5xl font-semibold tracking-tight">All {proc.steps.length} steps done</h1>
-              <p className="text-lg text-white/60">{proc.task}</p>
+              <h1 className="text-4xl font-semibold tracking-tight">All {proc.steps.length} steps done</h1>
+              <ReportCard report={summarize(proc, doneAt, checks, warns, cost)} compact />
             </motion.div>
           )}
         </AnimatePresence>
