@@ -41,3 +41,12 @@ replayed through the server: median step timing error 7.1 s (mean 9.4 s) over fi
 checks, $0.20, 0 false warnings, no planted mistakes. See progress-notes.md, stills-test.md,
 confirm-test.md, progress-gate.md and open-weights.md for the measurements behind each design
 choice, and api-notes.md for the day-1 model measurements.
+
+## The task progress gauge
+The DINOv2 progress model alone read outside the current step's share of the task on 86 of 136
+frames of catch5 (64% through step 3, where the expert was 45-53%; 24-41% on the throw). The
+gauge is now anchored to the step tracker (`progress/fuse.py`): the step sets the range, DINOv2
+places the work within it, capped at 90% until the step is confirmed and at twice the expert's
+pace, never moving backwards. On catch5 it stays inside each step's range on every frame, with
+0 backward moves, and the expert mirror always shows the current step. Older recorded runs are
+re-gauged on replay.

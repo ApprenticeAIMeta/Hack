@@ -42,6 +42,8 @@ from fastapi.staticfiles import StaticFiles
 from apprentice.guide.session import Session
 from apprentice.progress.crop import read_frames
 from apprentice.progress.embed import Embedder
+from apprentice.progress.fuse import TaskProgress
+from apprentice.progress.model import ProgressModel
 
 ROOT = Path(__file__).resolve().parents[2]
 GUIDE_FPS = 2
@@ -183,12 +185,32 @@ def _recordings() -> list[Path]:
 REPLAY_FPS, REPLAY_H = 8, 896   # replays are for review: decode as they play, thinned and scaled
 
 
+def _regauge(procedure: str, ticks: list[dict]) -> list[dict]:
+    """Runs recorded before the step-anchored gauge (progress/fuse.py) carry the raw DINOv2 value as
+    "progress"; recompute the gauge and the mirror time from it so every replay shows the same gauge."""
+    states = [m for m in ticks if m.get("type") == "state"]
+    if not states or any("progress_raw" in m for m in states):
+        return ticks
+    pdir = ROOT / "procedures" / procedure
+    model = ProgressModel.load(pdir / "progress.npz")
+    gauge = TaskProgress(json.loads((pdir / "procedure.json").read_text()), model, model.runs[0])
+    shown = None
+    for m in states:
+        raw = m.get("progress")
+        if "frame_size" in m and m.get("step") is not None:
+            shown = gauge.update(m["t"], m["step"], bool(m.get("finished")), raw)
+        m["progress_raw"], m["progress"] = raw, shown
+        if shown is not None:
+            m["mirror_t"] = model.mirror(gauge.label_at(shown), model.runs[-1])
+    return ticks
+
+
 async def _play(d: Path, speed: float = 1.0) -> None:
     """Replay a saved run in real time (or faster), decoding the video as it goes rather than up front."""
     loop = asyncio.get_running_loop()
     meta = json.loads((d / "meta.json").read_text())
     arrivals = [json.loads(l)["t"] for l in (d / "frames.jsonl").read_text().splitlines()]
-    ticks = [json.loads(l) for l in (d / "ticks.jsonl").read_text().splitlines()]
+    ticks = _regauge(meta["procedure"], [json.loads(l) for l in (d / "ticks.jsonl").read_text().splitlines()])
     cap = cv2.VideoCapture(str(d / "stream.mp4"))
     n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or len(arrivals)
     fps = cap.get(cv2.CAP_PROP_FPS) or 7

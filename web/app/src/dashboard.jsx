@@ -355,7 +355,7 @@ function Dashboard() {
               <Ring value={progress} />
               <div className="min-w-0 flex-1">
                 <p className="font-mono text-[11px] tracking-[0.2em] text-white/45">TASK PROGRESS</p>
-                <p className="mb-1 text-xs text-white/40">DINOv2 model, every second</p>
+                <p className="mb-1 text-xs text-white/40">Step from Muse Spark, position within it from DINOv2</p>
                 <Spark curve={curve} warns={warns} span={span} />
               </div>
             </Glass>

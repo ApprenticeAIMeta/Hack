@@ -34,6 +34,7 @@ from apprentice.models.meta import SAM, SPARK as SPARK_MODEL, MetaClient
 from apprentice.models.speech import speaker
 from apprentice.progress.crop import _touches, crop, parse_lines
 from apprentice.progress.embed import Embedder
+from apprentice.progress.fuse import TaskProgress
 from apprentice.progress.model import ProgressModel
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -93,6 +94,8 @@ class Session:
         self._local_steps = {st["id"]: st for st in self.local["steps"]} if self.local else {}
         self.model = ProgressModel.load(self.dir / "progress.npz")
         self.expert = self.model.runs[-1]
+        self.task = TaskProgress(self.proc, self.model, self.model.runs[0])  # the compiled (narrated) run
+        self.shown: float | None = None
         self.client = client or MetaClient()
         self.policy = SparkPolicy(self.dir, self.client)
         self.embedder = embedder
@@ -397,7 +400,6 @@ class Session:
             self.raw.append(float(pred["progress"][0]))
             p = float(np.median(self.raw[-SMOOTH:]))
             sim = float(pred["similarity"][0])
-            self.curve.append((round(t, 2), round(p, 4)))
             view = self._view(frame, box)
             self._last_view = (t, view)
         t_model = time.time()
@@ -426,9 +428,15 @@ class Session:
             events.append(ev)
         if not events and frame is None:
             return                      # nothing new to say between frames
-        mirror_t = self.model.mirror(p, self.expert) if p is not None else None
+        if frame is not None:           # a frame tick: the gauge moves (box or not), events alone don't
+            self.shown = self.task.update(t, self.tracker.k, self.tracker.finished, p)
+            self.curve.append((round(t, 2), round(self.shown, 4)))
+        elif self.tracker.finished:
+            self.shown = 1.0
+        # The mirror follows the shown progress, so the expert frame is always from the current step
+        mirror_t = self.model.mirror(self.task.label_at(self.shown), self.expert) if self.shown is not None else None
         t_start, t_sam, t_model = timing or (time.time(),) * 3
-        self.publish({"type": "state", "t": round(t, 2), "progress": p, "similarity": sim, "box": box,
+        self.publish({"type": "state", "t": round(t, 2), "progress": self.shown, "progress_raw": p, "similarity": sim, "box": box,
                       "frame_size": [frame.shape[1], frame.shape[0]] if frame is not None else list(self._size or (0, 0)),
                       "step": self.tracker.k,
                       "finished": self.tracker.finished, "mirror_t": mirror_t, "events": events,
