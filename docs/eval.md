@@ -50,3 +50,29 @@ places the work within it, capped at 90% until the step is confirmed and at twic
 pace, never moving backwards. On catch5 it stays inside each step's range on every frame, with
 0 backward moves, and the expert mirror always shows the current step. Older recorded runs are
 re-gauged on replay.
+
+## Were the step advances right?
+Every advance in the six live runs, checked against the still from the glasses that it was judged
+on (contact sheets built from each run's `photos/` and `ticks.jsonl`; labelled by eye, one rater).
+"Done" means the still shows that step's result; "can't tell" means hands cover the fold or the
+fold is under way; "wrong" would mean the still shows an earlier step.
+
+| Run | Advances | Judged on a still | Done | Can't tell | Wrong | Step picker used to go back |
+|---|---|---|---|---|---|---|
+| guided1 | 6 | 3 | 1 | 2 | 0 | (not built yet) |
+| catch1 | 5 | 4 | 3 | 1 | 0 | (not built yet) |
+| catch2 | 6 | 6 | 5 | 1 | 0 | 0 |
+| catch3 | 6 | 6 | 4 | 2 | 0 | 0 |
+| catch4 | 5 | 5 | 3 | 2 | 0 | 0 |
+| catch5 | 7 | 6 | 6 | 0 | 0 | 0 |
+| **Total** | **35** | **30** | **22** | **8** | **0** | **0 of 24** |
+
+- No advance was onto a step the still showed as not started, and no step was ever skipped (the
+  tracker advances one step at a time by design).
+- In the four runs with the step picker (catch2 to catch5), the novice never used it to undo an
+  advance: 0 corrections in 24 advances.
+- The "can't tell" stills are the reason hands-off became the trigger: the stills with hands on
+  the paper are the ones a person cannot judge either.
+- catch1's planted mistakes (corners short, points inside, one wing) were advanced past: the
+  step was attempted but done wrong, which is the mistake-catching gap above, not a tracking error.
+- The 5 advances judged on a stream frame and the throw (it leaves the view) have no still to check.
