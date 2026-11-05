@@ -6,6 +6,8 @@
 
 **[▶ Watch the 3-minute demo](https://youtu.be/wqdUkSTJxkM)**
 
+[![ApprenticeAI demo video](https://img.youtube.com/vi/wqdUkSTJxkM/maxresdefault.jpg)](https://youtu.be/wqdUkSTJxkM)
+
 **An expert does a job once on Ray-Ban Meta glasses. Anyone can then do it with that expert in their ear.**
 
 **Want early access?** [Join the waitlist](https://tally.so/r/o9D9AV)
