@@ -1,0 +1,20 @@
+{
+ "generic_warn": "Stop. Check this against the expert's work before you go on.",
+ "step_01_say": "Separate the golden copper wire from the silver gray wire. When they're apart, set them down and take your hands away, so I can see both wires.",
+ "step_02_say": "Find channel sixteen: the empty slot at the end of the first thermocouple module. When you've found it, look straight at it with your hands down.",
+ "step_02_warn1": "Stop. It looks like you're selecting the analog input AI module instead of the thermocouple module. Compare it with the expert's.",
+ "step_03_say": "Pick up the small flat screwdriver. Then set it down right next to the connector and take your hand away, so I can see it.",
+ "step_03_warn1": "Stop. It looks like you're using a screwdriver too big for the orange button. Compare it with the expert's.",
+ "step_03_warn2": "Stop. It looks like you're leaving wire ends only partly seated in the ports. Swapped wires give really bad values when read off the program.",
+ "step_04_say": "With the screwdriver, press down the orange button on the left port of channel sixteen, push the gold copper wire all the way in, and release. Then take your hands away and look at the connector, so I can check it.",
+ "step_04_warn1": "Stop. It looks like you're pushing the gold copper wire into the right port. Swapped wires give really bad values when read off the program.",
+ "step_05_say": "Now the same on the right port: press the button, push the silver constantan wire in, and release. Then take your hands away and look at the connector, so I can check it.",
+ "not_covered": "I didn't cover that when I recorded this. The answer's on your screen.",
+ "tip_step_03": "Before you lock it in, check your wires: gold copper on the left, silver constantan on the right.",
+ "step_04_warn2": "Stop. It looks like you're leaving the copper wire only partly seated. Swapped wires give really bad values when read off the program.",
+ "step_05_warn1": "Stop. It looks like you're connecting the constantan silver wire to the left port and the copper golden wire to the right port. Swapped wires give really bad values when read off the program.",
+ "step_05_warn2": "Stop. It looks like you're leaving the constantan wire only partly seated. Swapped wires give really bad values when read off the program.",
+ "tip_step_05": "Before you lock it in, check your wires: gold copper on the left, silver constantan on the right.",
+ "step_06_say": "Pull both wires lightly to confirm each wire is secure. Then let go, and hold still on the connector, so I can check.",
+ "step_06_warn1": "Stop. It looks like you're yanking wires hard enough to pull seated wires out. Pulling confirms the wire is secure in place and reading the right thing."
+}

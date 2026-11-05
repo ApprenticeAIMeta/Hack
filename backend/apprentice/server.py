@@ -107,10 +107,14 @@ def _proc_dir(name: str) -> Path:
 
 @app.get("/api/source/{name}")
 def source_video(name: str) -> FileResponse:
-    """The expert's recording the procedure was compiled from (footage/, kept out of git)."""
-    src = json.loads((_proc_dir(name) / "procedure.json").read_text()).get("source", {}).get("video", "")
-    f = ROOT / "footage" / Path(src).name
-    if not src or not f.exists():
+    """The expert's recording the procedure was compiled from: footage/ on the machine that compiled it,
+    else the smaller copy bundled with the procedure (procedures/<name>/expert_take.mp4)."""
+    d = _proc_dir(name)
+    src = json.loads((d / "procedure.json").read_text()).get("source", {}).get("video", "")
+    f = ROOT / "footage" / Path(src).name if src else d / "expert_take.mp4"
+    if not f.exists():
+        f = d / "expert_take.mp4"
+    if not f.exists():
         raise HTTPException(404, "recording not on this machine")
     return FileResponse(f, media_type="video/mp4")
 
@@ -118,8 +122,10 @@ def source_video(name: str) -> FileResponse:
 @app.get("/api/voice_sample/{name}")
 def voice_sample(name: str) -> FileResponse:
     """The stretch of the expert's own recording his voice was cloned from (tools/new_procedure.sh)."""
-    _proc_dir(name)
+    d = _proc_dir(name)
     f = ROOT / "out" / "voice" / name / "reference.wav"
+    if not f.exists():
+        f = d / "voice_sample.wav"      # bundled copy
     if not f.exists():
         raise HTTPException(404, "no voice sample on this machine")
     return FileResponse(f, media_type="audio/wav")

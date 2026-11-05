@@ -14,6 +14,7 @@
 set -euo pipefail
 name=${1:?procedure name}; first=${2:?first recording}; second=${3:-}; sample=${4:-}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+mkdir -p "$ROOT/footage"   # gitignored except its README; a fresh clone has only that
 PHONE="/sdcard/Download/Meta AI"
 t0=$(date +%s); stamp() { echo "[$(( $(date +%s) - t0 ))s] $*"; }
 

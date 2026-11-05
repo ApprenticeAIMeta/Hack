@@ -13,7 +13,7 @@ Target 2:50. Due Nov 4, 9 PM ET.
 | 0:00-0:10 | Cold open: the beginner at the rack, glasses on. Caption: "That's Chibuoke's voice. He recorded this job once, this morning." | His cloned voice: "Find channel sixteen: the empty slot at the end of the first thermocouple module." | good2 (glasses + your camera) |
 | 0:10-0:30 | Chibuoke on camera, one line on what new people get wrong; then him recording the job on the glasses, LED visible. Lower third: "The US needs about 207,000 new electricians, HVAC techs, plumbers and mechanics a year (BLS)." | His words | Interview + expert take 1 (skip 2:49, another person's face) |
 | 0:30-0:50 | The compile: `tools/new_procedure.sh` in the terminal, the transcript, the steps appearing. Label each model as it runs. Caption: "One recording. About 30 seconds of Muse Spark." | VO: "Voice Transcribe times his words, Muse Spark writes the steps and the mistakes he warned about." | Screen recording (re-run on a copy if needed) |
-| 0:50-1:35 | good2, dashboard left, your camera right. Hands away, the What Spark saw panel fills (NOVICE · NOW beside EXPERT · DONE), "That looks right", next step. Show two steps at 1x, the rest sped up with a "4x" label. Lower third: "11 complete live runs. 57 step advances, every one from the beginner's own pause." | His voice, natural sound | good2 replay + your camera |
+| 0:50-1:35 | good2, dashboard left, your camera right. Hands away, the What Spark saw panel fills (NOVICE · NOW beside EXPERT · DONE), "That looks right", next step. Show two steps at 1x, the rest sped up with a "4x" label. Lower third: "51 step advances across 14 live runs, every one from the beginner's own pause." | His voice, natural sound | good2 replay + your camera |
 | 1:35-2:05 | swap1: silver wire into the left port, hands away, STOP banner, panel shows MISTAKE, his voice stops you; the fix, "That's it. Gold on the left." **Label on screen for the whole beat: "Demonstrated warning (staged)".** | His voice | swap1 replay + your camera |
 | 2:05-2:20 | Ask the expert: "Which side does the copper go on?" and his own recorded words play ("EXPERT, RECORDED" on the dashboard). | His recording | novice7 replay (see note below) |
 | 2:20-2:30 | Optional: the guide on a simulated Meta Ray-Ban Display with Neural Band gestures. Label "Simulated Display". | Natural sound | Lens app in the emulator (docs/lens.md) |
@@ -39,7 +39,7 @@ Target 2:50. Due Nov 4, 9 PM ET.
 - Consent: Chibuoke's signed form covers filming and the cloned voice. LED visible in every glasses shot.
 - No other person's face (expert take 1 at 2:49).
 - Every staged or simulated moment carries its label for the whole beat.
-- Numbers on screen match out/sessions: 11 complete runs, 57 advances, good2 2:32, expert take 2:52, about $0.55 to $0.60 per run.
+- Numbers on screen match out/sessions: 18 recorded runs, all 3 on the final six-step guide finished, 51 advances since the hands-off signal, best run 2:32, about $0.55 to $0.61 per run.
 
 ## Edit
 - 1080p30. Dashboard capture at 1440x900 or larger (smaller windows overlap the panels).

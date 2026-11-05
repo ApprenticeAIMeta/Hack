@@ -3,7 +3,8 @@
 .env.*
 
 # media and generated output (clips exceed GitHub's 100 MB limit)
-footage/
+footage/*
+!footage/README.md
 out/
 *.mp4
 *.mov
@@ -44,6 +45,14 @@ procedures/dryrun/
 !procedures/airplane/mirror_2fps.mp4
 !demo/
 !demo/**/*.mp4
+# ...and the thermocouple procedure from the video (expert's consent covers his recording and voice)
+!procedures/thermocouple/clips/
+!procedures/thermocouple/keyframes/
+!procedures/thermocouple/voice/
+procedures/thermocouple/voice/demo_*.wav
+!procedures/thermocouple/progress.npz
+!procedures/thermocouple/mirror_2fps.mp4
+!procedures/thermocouple/expert_take.mp4
 android/.kotlin/
 out/voice/
 

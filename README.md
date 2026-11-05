@@ -1,8 +1,8 @@
 # ApprenticeAI
 
-![Ray-Ban Meta](https://img.shields.io/badge/Ray--Ban%20Meta-Device%20Access%20Toolkit-0b5394) ![Muse Spark](https://img.shields.io/badge/Muse%20Spark-1.3-7DD3F5) ![SAM](https://img.shields.io/badge/SAM-3.1-6EE7B7) ![runs](https://img.shields.io/badge/live%20runs-11%20complete-success) ![tests](https://img.shields.io/badge/tests-24%20passing-success)
+![Ray-Ban Meta](https://img.shields.io/badge/Ray--Ban%20Meta-Device%20Access%20Toolkit-0b5394) ![Muse Spark](https://img.shields.io/badge/Muse%20Spark-1.3-7DD3F5) ![SAM](https://img.shields.io/badge/SAM-3.1-6EE7B7) ![runs](https://img.shields.io/badge/live%20runs-18%20recorded-success) ![tests](https://img.shields.io/badge/tests-24%20passing-success)
 
-**Quick links:** [Results](#results-live-on-the-glasses-nov-4) · [How it works](#how-it-works) · [What the model decides, what stays in code](#what-the-model-decides-what-stays-in-code) · [A real run](#a-real-run-good2) · [Limits](#results-live-on-the-glasses-nov-4) · [Run it](#run-it)
+**Quick links:** [Results](#results-live-on-the-glasses-nov-4) · [How it works](#how-it-works) · [What the model decides, what stays in code](#what-the-model-decides-what-stays-in-code) · [Limits](#results-live-on-the-glasses-nov-4) · [Run it](#run-it)
 
 **An expert does a job once on Ray-Ban Meta glasses. Anyone can then do it with that expert in their ear.**
 
@@ -17,17 +17,17 @@ Built for the Meta Global AI Developer Hackathon (Oct 27 to Nov 4, 2026). About 
 <img src="docs/img/phone_guide.jpg" width="23%" alt="The phone guide: step 4 of 6, the expert's photo of the step done, and his spoken line">
 </p>
 
-*Left: the dashboard during run `good2`, replayed from its recording. The novice's glasses (left) beside the expert at the same point (right), his line as a caption, and **What Spark saw**: the frame Muse Spark judged at the novice's hands-off signal next to the expert's photo of that step done. Right: the phone guide the wearer sees.*
+*Left: the dashboard during a guided run, replayed from its recording. The novice's glasses (left) beside the expert at the same point (right), his line as a caption, and **What Spark saw**: the frame Muse Spark judged at the novice's hands-off signal next to the expert's photo of that step done. Right: the phone guide the wearer sees.*
 
 ## Results: live on the glasses, Nov 4
 
-Procedure: wiring a type T thermocouple into channel 16 of a National Instruments thermocouple module, recorded by Chibuoke at Purdue's Herrick Labs (two takes, 2:52 each).
+Procedure: wiring a type T thermocouple into channel 16 of a National Instruments thermocouple module, recorded by Chibuoke at Purdue's Herrick Labs (recorded twice, about three minutes each).
 
 | Metric | Value |
 |---|---|
-| Complete guided runs | **11** |
-| Step advances | **57**, every one triggered by the novice's own hands-off pause, **0** manual overrides |
-| Best six-step run | **2:32** (expert: 2:52) |
+| Recorded live runs | **18**; all **3** runs on the final six-step guide finished every step |
+| Step advances since the hands-off signal | **51** across 14 runs, every one triggered by the novice's own pause, **0** manual overrides |
+| Best six-step run | **2:32** |
 | Signal to verdict | about 3 s (unverifiable steps), 7 to 9 s (Spark-checked steps) |
 | Compile, recording to procedure | about 30 s of Muse Spark, about 3.5 min end to end |
 | Cost | $0.55 to $0.61 per three-minute guided run |
@@ -115,22 +115,6 @@ flowchart LR
 
 The model never moves the guide on its own: a step advances only on the novice's own signal, and a warning only holds the step.
 
-## A real run: `good2`
-
-Events from `out/sessions/20261104-161919_good2/ticks.jsonl` (shortened):
-
-```text
-  2.8  intro      "Today you'll wire a thermocouple into channel sixteen. I'm watching through your glasses..."
-  2.8  instruct 1 "Separate the golden copper wire from the silver gray wire. When they're apart, ..."
- 32.8  check    1 muse-spark-1.3  5.5 s  no mistake      -> step_done  "That looks right."
- 32.8  instruct 2 "Find channel sixteen: the empty slot at the end of the first thermocouple module..."
- 55.2  check    2 muse-spark-1.3  6.6 s  no mistake      -> step_done  "Nice, that's it."
- 72.6  check    3 muse-spark-1.3  4.9 s  no mistake      -> step_done  "Good, that's done."
-100.5  signal   4 (not visually verifiable, no model call) -> step_done  "Got it."
-138.2  signal   5 (not visually verifiable, no model call) -> step_done  "Okay, next step."
-151.9  signal   6 -> complete "Done, good job! Now check the display: your channel should read the same as the others."
-```
-
 <p align="center"><img src="docs/lens-sim.png" width="80%" alt="The guide on a simulated Meta Ray-Ban Display, composited over the live glasses view, with Neural Band gestures"></p>
 
 *Simulated Meta Ray-Ban Display (`android/lens`): the step and the expert's photo drawn by Meta's own Display renderer (MockDeviceKit), screen-blended over the live view, driven by Neural Band swipes and pinches.*
@@ -150,9 +134,9 @@ Events from `out/sessions/20261104-161919_good2/ticks.jsonl` (shortened):
 | SAM 3.1 | Meta Model API | hands-off signal, workpiece and target tracking |
 | Muse Voice Transcribe | Meta Model API | expert narration turns, novice questions |
 | Omnilingual ASR (CTC 300M) | local, open weights | non-English questions, fallback |
-| MMS-TTS | local, open weights | Hindi and Spanish guides |
+| MMS-TTS | local, open weights | other-language guides (Spanish thermocouple, Hindi paper airplane) |
 | DINOv2 | local, open weights | progress gauge, expert mirror |
-| Muse Spark Open | Baseten | automatic fallback for every Spark call |
+| Muse Spark Open | Baseten | automatic fallback for every Spark call (Meta's open model on Baseten, only when `BASETEN_API_KEY` is set) |
 
 ## Run it
 
@@ -163,9 +147,9 @@ cd backend && uv sync
 PYTHONPATH=. .venv/bin/uvicorn apprentice.server:app --port 8000
 ```
 
-<http://localhost:8000/?demo=1> for the dashboard ("Replay a run" picks any saved session), <http://localhost:8000/guide> at phone size for the wearer's screen. Tests: `cd backend && uv run pytest -q`.
+<http://localhost:8000/?demo=1> for the dashboard (replays the bundled paper airplane run `catch5`; the thermocouple runs in the video are not bundled), <http://localhost:8000/build?procedure=thermocouple> for what the expert's one recording became (his take, his timed words, the six steps, his voice; Spanish toggle), <http://localhost:8000/guide> at phone size for the wearer's screen. Tests: `cd backend && uv run pytest -q`.
 
-Live: `META_API_KEY` in `.env`, the glasses in Developer Mode, the app from `android/` on a phone over USB (`adb reverse tcp:8000 tcp:8000`). A new procedure from an expert's recording:
+Live: `META_API_KEY` in `.env`, the glasses in Developer Mode, the app from `android/` on a phone over USB (`adb reverse tcp:8000 tcp:8000`). A new procedure from an expert's recording (needs ffmpeg, adb, and [Chatterbox](https://github.com/resemble-ai/chatterbox) in `~/.venvs/clone` for the voice clone; Chatterbox is the only non-Meta model, it is TTS and runs offline at compile time):
 
 ```bash
 KEYWORDS="thermocouple,copper,constantan" WORKPIECE="wires" tools/new_procedure.sh thermocouple take1.mp4 take2.mp4 voice_sample.wav
