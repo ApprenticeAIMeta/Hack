@@ -14,14 +14,14 @@ Built for the Meta Global AI Developer Hackathon (Oct 27 to Nov 4, 2026). About 
 
 <p align="center">
 <img src="docs/img/dashboard.jpg" width="74%" alt="The live dashboard during a guided run: the novice's glasses view beside the expert at the same point, the spoken instruction, the step list, the Meta models panel, the progress gauge and What Spark saw">
-<img src="docs/img/phone_guide.jpg" width="23%" alt="The phone guide: step 4 of 6, the expert's photo of the step done, and his spoken line">
+<img src="docs/img/phone_guide.jpg" width="23%" alt="The phone guide: step 4 of 6, the expert's photo of the step done, and the expert's spoken line">
 </p>
 
-*Left: the dashboard during a guided run, replayed from its recording. The novice's glasses (left) beside the expert at the same point (right), his line as a caption, and **What Spark saw**: the frame Muse Spark judged at the novice's hands-off signal next to the expert's photo of that step done. Right: the phone guide the wearer sees.*
+*Left: the dashboard during a guided run, replayed from its recording. The novice's glasses (left) beside the expert at the same point (right), the expert's line as a caption, and **What Spark saw**: the frame Muse Spark judged at the novice's hands-off signal next to the expert's photo of that step done. Right: the phone guide the wearer sees.*
 
 ## Results: live on the glasses, Nov 4
 
-Procedure: wiring a type T thermocouple into channel 16 of a National Instruments thermocouple module, recorded by Chibuoke at Purdue's Herrick Labs (recorded twice, about three minutes each).
+Procedure: wiring a type T thermocouple into channel 16 of a National Instruments thermocouple module, recorded by a lab expert in two takes of about three minutes each.
 
 | Metric | Value |
 |---|---|
@@ -39,7 +39,7 @@ Procedure: wiring a type T thermocouple into channel 16 of a National Instrument
 
 <p align="center"><img src="docs/img/expert_capture.jpg" width="80%" alt="Two frames of the expert's first-person recording on Ray-Ban Meta glasses: holding the thermocouple wire, then wiring it into the module"></p>
 
-*The only input: the expert's own first-person recording on Ray-Ban Meta glasses, narrated as he works (two takes, under three minutes each).*
+*The only input: the expert's own first-person recording on Ray-Ban Meta glasses, narrated while working (two takes, under three minutes each).*
 
 ```mermaid
 flowchart TB
@@ -54,7 +54,7 @@ flowchart TB
         T --> SP
         SP --> PR["procedure.json<br/>steps · spoken · show · why<br/>expert_warnings · known_mistakes"]
         V --> REF["reference photos<br/>sharpest hands-off frame"]
-        T --> CL["Chatterbox clone<br/>(his voice, with consent)"]
+        T --> CL["Chatterbox clone<br/>(the expert's voice, with consent)"]
         V --> DV["DINOv2 progress model<br/>trained on degraded takes"]
     end
     subgraph GUIDE["3 · Guide (live, ~2 Hz)"]
@@ -65,8 +65,8 @@ flowchart TB
         D -->|no| ACK["advance · 'Got it'"]
         D -->|yes| MC["Muse Spark mistake check<br/>vs expert reference<br/>+ quarter-turn confirm in parallel"]
         MC -->|no mistake| OK["advance · 'That looks right'"]
-        MC -->|mistake| W["warn in his voice · hold step"]
-        Q["Novice asks (phone mic)"] --> ASR["Voice Transcribe / Omnilingual ASR"] --> PICK["Muse Spark picks his recorded turns"] --> CLIP["his own recording plays"]
+        MC -->|mistake| W["warn in the expert's voice · hold step"]
+        Q["Novice asks (phone mic)"] --> ASR["Voice Transcribe / Omnilingual ASR"] --> PICK["Muse Spark picks the expert's recorded turns"] --> CLIP["the expert's own recording plays"]
     end
     PR --> S
     REF --> MC
@@ -77,17 +77,17 @@ flowchart TB
 
 ### Compile: one recording to a procedure (`backend/apprentice/compile`)
 - **Utterance segmentation** from an energy envelope relative to the room's noise floor (20th-percentile dB + 6 dB), joined across 1.2 s gaps, split at the quietest frame past 8 s; each utterance transcribed separately by **Muse Voice Transcribe** (PUSH_TO_TALK, keyword-biased), so every turn's timestamps are exact cut points for the expert's voice.
-- **One Muse Spark call** over the proxy video plus the timed transcript, strict JSON schema: per step `instruction`, `spoken` (imperative, ≤22 words, never first person or "like this"), `why`, `done_check`, `expert_warnings` (only what he actually said) kept apart from `known_mistakes` (≤2 model-added, all `-ing` phrases so warnings stay grammatical).
+- **One Muse Spark call** over the proxy video plus the timed transcript, strict JSON schema: per step `instruction`, `spoken` (imperative, ≤22 words, never first person or "like this"), `why`, `done_check`, `expert_warnings` (only what the expert actually said) kept apart from `known_mistakes` (≤2 model-added, all `-ing` phrases so warnings stay grammatical).
 - **Prompt rules learned from failures:** safety actions are always their own step; a mistake the expert demonstrates and undoes becomes a warning on the correct step, never a step (the thermocouple take first compiled "Connect Reversed Wires" as step 3).
 - **Reference photos** from the sharpest hands-off frame per step, re-pickable (`tools/repick_ref.py`).
-- **Voice:** every line rendered in the expert's cloned voice (Chatterbox Turbo, 30 s denoised reference from his own narration, with written consent); unchanged lines are reused by text match on re-render.
+- **Voice:** every line rendered in the expert's cloned voice (Chatterbox Turbo, 30 s denoised reference from the expert's own narration, with written consent); unchanged lines are reused by text match on re-render.
 
 ### Guide: when to look, what to say (`backend/apprentice/guide`)
 - **Signal mode** (`advance_on: signal`): a head-worn camera never holds still, so frame differencing is useless. SAM 3.1 looks for hands every 1.5 s; two clear looks with no hand touching the workpiece box is the novice saying "done". With no workpiece box in view, no hand in frame is the signal.
 - **Signals are ignored** during a step's first 6 s and while any voice line is still playing (hold = running total of queued line lengths), and re-arm after 8 s of continued stillness.
 - **Per-step policy from `procedure.json`:** `verifiable: false` steps advance on the signal alone with a neutral acknowledgement (no Spark call, about 3 s); others get a Spark mistake check against the expert's reference, with a quarter-turned confirmation run in parallel so a false alarm costs one call's latency, not two. `tip` plays the expert's check-before-you-commit on a step's first pause. `show` tells the novice how to present the finished step.
 - **`expert_voice_only`:** step lines, warnings, acknowledgements, intro and closing are all the expert's cloned voice; anything without a clone is shown as text, never spoken in another voice.
-- **Ask the expert:** Spark is given his numbered transcript turns and the live frame, returns `{clip_from, clip_to, answer}` under a strict schema, prefers the shortest clean passage (no slips or asides), capped at about 12 s of speech; the answer audio is his own recording, the written answer goes to the screens. Questions nothing covers play his cloned "I didn't cover that when I recorded this".
+- **Ask the expert:** Spark is given the expert's numbered transcript turns and the live frame, returns `{clip_from, clip_to, answer}` under a strict schema, prefers the shortest clean passage (no slips or asides), capped at about 12 s of speech; the answer audio is the expert's own recording, the written answer goes to the screens. Questions nothing covers play the expert's cloned "I didn't cover that when I recorded this".
 - **Presence:** rotating phrasings (no line twice in a row), reminders only after 20 s of real silence and never within 6 s of a hand on the work.
 - **Tracker** (`state.py`): one-step-at-a-time advances, stale answers dropped, pending advances survive one contradicting answer, warnings need two positive checks outside signal mode.
 
@@ -149,7 +149,7 @@ cd backend && uv sync
 PYTHONPATH=. .venv/bin/uvicorn apprentice.server:app --port 8000
 ```
 
-<http://localhost:8000/?demo=1> for the dashboard (replays the bundled paper airplane run `catch5`; the thermocouple runs in the video are not bundled), <http://localhost:8000/build?procedure=thermocouple> for what the expert's one recording became (his take, his timed words, the six steps, his voice; Spanish toggle), <http://localhost:8000/guide> at phone size for the wearer's screen. Tests: `cd backend && uv run pytest -q`.
+<http://localhost:8000/?demo=1> for the dashboard (replays the bundled paper airplane run `catch5`; the thermocouple runs in the video are not bundled), <http://localhost:8000/build?procedure=thermocouple> for what the expert's one recording became (the take, the timed words, the six steps, the cloned voice; Spanish toggle), <http://localhost:8000/guide> at phone size for the wearer's screen. Tests: `cd backend && uv run pytest -q`.
 
 Live: `META_API_KEY` in `.env`, the glasses in Developer Mode, the app from `android/` on a phone over USB (`adb reverse tcp:8000 tcp:8000`). A new procedure from an expert's recording (needs ffmpeg, adb, and [Chatterbox](https://github.com/resemble-ai/chatterbox) in `~/.venvs/clone` for the voice clone; Chatterbox is the only non-Meta model, it is TTS and runs offline at compile time):
 
