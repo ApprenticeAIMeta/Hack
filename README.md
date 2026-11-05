@@ -4,8 +4,6 @@
 
 **Quick links:** [Results](#results-live-on-the-glasses-nov-4) · [How it works](#how-it-works) · [What the model decides, what stays in code](#what-the-model-decides-what-stays-in-code) · [Limits](#results-live-on-the-glasses-nov-4) · [Run it](#run-it)
 
-**[▶ Watch the 3-minute demo](https://youtu.be/wqdUkSTJxkM)**
-
 [![ApprenticeAI demo video: play on YouTube](docs/img/video_thumb.jpg)](https://youtu.be/wqdUkSTJxkM)
 
 **An expert does a job once on Ray-Ban Meta glasses. Anyone can then do it with that expert in their ear.**
