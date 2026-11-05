@@ -6,7 +6,7 @@
 
 **[▶ Watch the 3-minute demo](https://youtu.be/wqdUkSTJxkM)**
 
-[![ApprenticeAI demo video](https://img.youtube.com/vi/wqdUkSTJxkM/maxresdefault.jpg)](https://youtu.be/wqdUkSTJxkM)
+[![ApprenticeAI demo video: play on YouTube](docs/img/video_thumb.jpg)](https://youtu.be/wqdUkSTJxkM)
 
 **An expert does a job once on Ray-Ban Meta glasses. Anyone can then do it with that expert in their ear.**
 
@@ -17,7 +17,7 @@ One narrated, first-person recording is compiled by Meta's models into a step-by
 Built for the Meta Global AI Developer Hackathon (Oct 27 to Nov 4, 2026). About 6,500 lines across a FastAPI backend, a React dashboard, and two Android apps.
 
 <p align="center">
-<img src="docs/img/dashboard.jpg" width="74%" alt="The live dashboard during a guided run: the novice's glasses view beside the expert at the same point, the spoken instruction, the step list, the Meta models panel, the progress gauge and What Spark saw">
+<img src="docs/img/live_loop.gif" width="74%" alt="The live dashboard during a guided run: the novice's glasses view beside the expert at the same point, the spoken instruction, the step list, the Meta models panel, the progress gauge and What Spark saw">
 <img src="docs/img/phone_guide.jpg" width="23%" alt="The phone guide: step 4 of 6, the expert's photo of the step done, and the expert's spoken line">
 </p>
 
