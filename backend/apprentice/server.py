@@ -13,6 +13,7 @@
   WS  /ws/guide                      guide screen: the same, with frames thinned to GUIDE_FPS
   GET /                              dashboard page (web/index.html)
   GET /guide?procedure=airplane      guide screen for the novice's phone (web/guide.html)
+  GET /build?procedure=thermocouple  what one recording became: his take, timed words, steps, his voice
   GET /api/procedure/{name}          compiled procedure
   GET /api/mirror/{name}/{t}.jpg     the expert's frame at time t (the mirror side)
   POST /api/demo?session=<dir>       replay a recorded session to the screens, no glasses or API calls
@@ -90,6 +91,38 @@ def index() -> FileResponse:
 @app.get("/guide")
 def guide_page() -> FileResponse:
     return _page("guide.html")
+
+
+@app.get("/build")
+def build_page() -> FileResponse:
+    """What one expert recording became: his take, his timed words, the steps, and his voice."""
+    return _page("build.html")
+
+
+def _proc_dir(name: str) -> Path:
+    if not re.fullmatch(r"[\w-]+", name) or not (ROOT / "procedures" / name / "procedure.json").exists():
+        raise HTTPException(404, "no such procedure")
+    return ROOT / "procedures" / name
+
+
+@app.get("/api/source/{name}")
+def source_video(name: str) -> FileResponse:
+    """The expert's recording the procedure was compiled from (footage/, kept out of git)."""
+    src = json.loads((_proc_dir(name) / "procedure.json").read_text()).get("source", {}).get("video", "")
+    f = ROOT / "footage" / Path(src).name
+    if not src or not f.exists():
+        raise HTTPException(404, "recording not on this machine")
+    return FileResponse(f, media_type="video/mp4")
+
+
+@app.get("/api/voice_sample/{name}")
+def voice_sample(name: str) -> FileResponse:
+    """The stretch of the expert's own recording his voice was cloned from (tools/new_procedure.sh)."""
+    _proc_dir(name)
+    f = ROOT / "out" / "voice" / name / "reference.wav"
+    if not f.exists():
+        raise HTTPException(404, "no voice sample on this machine")
+    return FileResponse(f, media_type="audio/wav")
 
 
 @app.get("/api/procedure/{name}")
@@ -184,7 +217,7 @@ def _recordings() -> list[Path]:
     return sorted(found, key=lambda d: (d.parent.name == "demo", (d / "ticks.jsonl").stat().st_size))
 
 
-REPLAY_FPS, REPLAY_H = 8, 896   # replays are for review: decode as they play, thinned and scaled
+REPLAY_FPS, REPLAY_H = int(os.environ.get("REPLAY_FPS", 8)), int(os.environ.get("REPLAY_H", 896))  # replays are for review: decode as they play, thinned and scaled
 
 
 def _regauge(procedure: str, ticks: list[dict]) -> list[dict]:
@@ -205,6 +238,9 @@ def _regauge(procedure: str, ticks: list[dict]) -> list[dict]:
         if shown is not None:
             m["mirror_t"] = model.mirror(gauge.label_at(shown), model.runs[-1])
     return ticks
+
+
+_frame_tasks: set[asyncio.Task] = set()
 
 
 async def _play(d: Path, speed: float = 1.0) -> None:
@@ -245,9 +281,13 @@ async def _play(d: Path, speed: float = 1.0) -> None:
                 await until(ticks[k]["t"])
                 await _broadcast(ticks[k])
                 k += 1
+            if jpeg and loop.time() - (t0 + t / speed) > 0.25:
+                continue                # behind the run's clock (a slow viewer): drop frames to catch up
             if jpeg:
                 await until(t)
-                await _broadcast({"type": "frame", "t": t, "jpeg": jpeg})
+                # not awaited: a slow viewer drops frames (_frame_busy) instead of slowing the replay's clock
+                task = asyncio.create_task(_broadcast({"type": "frame", "t": t, "jpeg": jpeg}))
+                _frame_tasks.add(task); task.add_done_callback(_frame_tasks.discard)
         for m in ticks[k:]:
             await until(m["t"])
             await _broadcast(m)
@@ -274,7 +314,8 @@ def sessions() -> list[dict]:
             continue
         out.append({"session": d.name, "run": m.get("run"), "procedure": m.get("procedure"), "started": m.get("started"),
                     "duration_s": m.get("duration_s"), "steps_done": len(m.get("steps_done", [])),
-                    "warnings": len(m.get("warnings", [])), "complete": m.get("complete")})
+                    "warnings": len(m.get("warnings", [])), "complete": m.get("complete"),
+                    "finished_s": m["steps_done"][-1][0] if m.get("complete") and m.get("steps_done") else None})
     return sorted(out, key=lambda r: r["started"] or "", reverse=True)
 
 

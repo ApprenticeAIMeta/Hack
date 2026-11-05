@@ -12,7 +12,7 @@ export default defineConfig({
   build: {
     outDir: '../build',
     emptyOutDir: true,
-    rollupOptions: { input: { index: resolve(__dirname, 'index.html'), guide: resolve(__dirname, 'guide.html') } },
+    rollupOptions: { input: { index: resolve(__dirname, 'index.html'), guide: resolve(__dirname, 'guide.html'), build: resolve(__dirname, 'build.html') } },
   },
   server: {
     proxy: {

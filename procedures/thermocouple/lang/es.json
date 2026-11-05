@@ -1,0 +1,65 @@
+{
+ "generic_warn": "Alto. Revisa esto con el trabajo del experto antes de seguir.",
+ "steps": [
+  {
+   "id": "step_01",
+   "instruction": "Separa el cable dorado de cobre del cable gris plateado. Cuando estén separados, déjalos. Quita las manos. Déjame ver los dos cables.",
+   "known_mistakes": [],
+   "title": "Identifica los tipos de cable",
+   "why": "Un termopar mide la temperatura por la diferencia entre los dos cables."
+  },
+  {
+   "id": "step_02",
+   "instruction": "Busca el canal dieciséis. Es el espacio vacío al final del primer módulo de termopar. Cuando lo encuentres, míralo fijo. Manos abajo.",
+   "known_mistakes": [
+    "eligiendo el módulo de entrada analógica AI en vez del módulo de termopar"
+   ],
+   "title": "Encuentra el canal dieciséis",
+   "why": ""
+  },
+  {
+   "id": "step_03",
+   "instruction": "Agarra el destornillador plano pequeño. Ponlo justo al lado del conector. Quita la mano. Déjame verlo.",
+   "known_mistakes": [
+    "usando un destornillador muy grande para el botón naranja"
+   ],
+   "title": "Agarra el destornillador",
+   "why": ""
+  },
+  {
+   "id": "step_04",
+   "instruction": "Con el destornillador, presiona el botón naranja del puerto izquierdo del canal dieciséis. Mete el cable dorado de cobre hasta el fondo. Suelta. Quita las manos. Mira el conector. Déjame revisarlo.",
+   "known_mistakes": [
+    "metiendo el cable dorado de cobre en el puerto derecho",
+    "dejando el cable de cobre metido a medias"
+   ],
+   "title": "Mete el cable de cobre",
+   "why": "Si cambias los cables, el programa da valores muy malos."
+  },
+  {
+   "id": "step_05",
+   "instruction": "Ahora igual en el puerto derecho. Presiona el botón. Mete el cable plateado de constantán. Suelta. Quita las manos. Mira el conector. Déjame revisarlo.",
+   "known_mistakes": [
+    "conectando el cable plateado de constantán al puerto izquierdo y el dorado de cobre al derecho",
+    "dejando el cable de constantán metido a medias"
+   ],
+   "title": "Mete el cable de constantán",
+   "why": "Si cambias los cables, el programa da valores muy malos."
+  },
+  {
+   "id": "step_06",
+   "instruction": "Jala suave los dos cables. Confirma que cada uno está firme. Suelta. Quédate quieto en el conector. Déjame revisar.",
+   "known_mistakes": [
+    "jalando los cables muy fuerte, sacando los que ya estaban bien"
+   ],
+   "title": "Asegura la conexión",
+   "why": "Al jalar confirmas que el cable está firme y mide bien."
+  }
+ ],
+ "stop": "Alto",
+ "task": "Conecta el cable de termopar al controlador",
+ "lang": "es",
+ "language": "Spanish",
+ "rendered_at": "2026-11-04T22:58:54",
+ "wall_s": 206.4
+}
