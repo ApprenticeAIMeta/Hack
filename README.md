@@ -1,12 +1,23 @@
 # ApprenticeAI
 
+![Ray-Ban Meta](https://img.shields.io/badge/Ray--Ban%20Meta-Device%20Access%20Toolkit-0b5394) ![Muse Spark](https://img.shields.io/badge/Muse%20Spark-1.3-7DD3F5) ![SAM](https://img.shields.io/badge/SAM-3.1-6EE7B7) ![runs](https://img.shields.io/badge/live%20runs-11%20complete-success) ![tests](https://img.shields.io/badge/tests-24%20passing-success)
+
+**Quick links:** [Results](#results-live-on-the-glasses-nov-4) · [How it works](#how-it-works) · [What the model decides, what stays in code](#what-the-model-decides-what-stays-in-code) · [A real run](#a-real-run-good2) · [Limits](#results-live-on-the-glasses-nov-4) · [Run it](#run-it)
+
 **An expert does a job once on Ray-Ban Meta glasses. Anyone can then do it with that expert in their ear.**
 
 One narrated, first-person recording is compiled by Meta's models into a step-by-step procedure: instructions in the expert's own terms, what each finished step looks like, why it matters, and the mistakes the expert warned about. A novice wearing the same glasses is then guided live, entirely in the expert's voice (cloned lines for instructions, the expert's actual recording for answers), while SAM 3.1 watches their hands and Muse Spark checks their work against the expert's.
 
 Built for the Meta Global AI Developer Hackathon (Oct 27 to Nov 4, 2026). About 6,500 lines across a FastAPI backend, a React dashboard, and two Android apps.
 
-## Results (live, on the glasses, Nov 4)
+<p align="center">
+<img src="docs/img/dashboard.jpg" width="74%" alt="The live dashboard during a guided run: the novice's glasses view beside the expert at the same point, the spoken instruction, the step list, the Meta models panel, the progress gauge and What Spark saw">
+<img src="docs/img/phone_guide.jpg" width="23%" alt="The phone guide: step 4 of 6, the expert's photo of the step done, and his spoken line">
+</p>
+
+*Left: the dashboard during run `good2`, replayed from its recording. The novice's glasses (left) beside the expert at the same point (right), his line as a caption, and **What Spark saw**: the frame Muse Spark judged at the novice's hands-off signal next to the expert's photo of that step done. Right: the phone guide the wearer sees.*
+
+## Results: live on the glasses, Nov 4
 
 Procedure: wiring a type T thermocouple into channel 16 of a National Instruments thermocouple module, recorded by Chibuoke at Purdue's Herrick Labs (two takes, 2:52 each).
 
@@ -22,22 +33,47 @@ Procedure: wiring a type T thermocouple into channel 16 of a National Instrument
 
 **Measured limits, stated plainly.** From a head-mounted camera, which wire sits in which port of this connector is not visible, even in 12 MP stills with a Spark-located, upscaled crop of the connector (tested on correct and mirrored photos). So the guide never claims to verify those steps: it acknowledges them ("Got it"), plays the expert's warning at the critical step, and sends the novice to the real check, the temperature display. Automatic mistake catching is not reliable yet on either procedure.
 
-## Architecture
+## How it works
 
+<p align="center"><img src="docs/img/expert_capture.jpg" width="96%" alt="Four frames of the expert's first-person recording on Ray-Ban Meta glasses: holding the wire, finding the channel, wiring, the finished connection"></p>
+
+*The only input: the expert's own first-person recording on Ray-Ban Meta glasses, narrated as he works (two takes, under three minutes each).*
+
+```mermaid
+flowchart LR
+    subgraph CAPTURE["1 · Capture (once)"]
+        E["Expert wears Ray-Ban Meta<br/>does the job, talks through it"] --> V["first-person video + narration"]
+    end
+    subgraph COMPILE["2 · Compile (~3.5 min)"]
+        V --> U["utterance segmentation<br/>noise-floor energy envelope"]
+        U --> T["Muse Voice Transcribe<br/>timed turns = cut points"]
+        V --> SP["Muse Spark 1.3<br/>strict JSON schema"]
+        T --> SP
+        SP --> PR["procedure.json<br/>steps · spoken · show · why<br/>expert_warnings · known_mistakes"]
+        V --> REF["reference photos<br/>sharpest hands-off frame"]
+        T --> CL["Chatterbox clone<br/>(his voice, with consent)"]
+        V --> DV["DINOv2 progress model<br/>trained on degraded takes"]
+    end
+    subgraph GUIDE["3 · Guide (live, ~2 Hz)"]
+        G["Novice's Ray-Ban Meta<br/>HEVC 720p15"] -->|DAT · Android · WebSocket| S["FastAPI session"]
+        S --> H["SAM 3.1 hands + workpiece<br/>every 1.5 s"]
+        H -->|"hands clear 2 looks<br/>= done-signal"| D{"step verifiable?"}
+        D -->|no| ACK["advance · 'Got it'"]
+        D -->|yes| MC["Muse Spark mistake check<br/>vs expert reference<br/>+ quarter-turn confirm in parallel"]
+        MC -->|no mistake| OK["advance · 'That looks right'"]
+        MC -->|mistake| W["warn in his voice · hold step"]
+        Q["Novice asks (phone mic)"] --> ASR["Voice Transcribe / Omnilingual ASR"] --> PICK["Muse Spark picks his recorded turns"] --> CLIP["his own recording plays"]
+    end
+    PR --> S
+    REF --> MC
+    CL --> ACK
+    CL --> OK
+    S --> UI["dashboard · phone guide · recorder · simulated Ray-Ban Display"]
 ```
- Ray-Ban Meta ──DAT (HEVC 720p15, BT)──▶ Android app ──WebSocket over adb reverse──▶ FastAPI server
-      ▲                                     │                                         │
-      └──── expert's voice (A2DP) ◀─────────┘◀──────── play events (WAV URLs) ─────────┤
-                                                                                       ▼
-   per tick (≈2 Hz, LiveGate)            SAM 3.1: hands + workpiece box ──▶ hands-off detector
-                                         DINOv2 crop embed ──▶ progress gauge (TaskProgress)
-   on signal                             Muse Spark: mistake check vs expert reference photo
-                                         (+ quarter-turn confirmation in parallel)
-   on question                           Voice Transcribe / Omnilingual ASR ──▶ Spark picks the
-                                         expert's own recorded turns ──▶ his clip is the answer
-                                                                                       │
-                     dashboard (/ws/dashboard) · phone guide (/ws/guide) · recorder (out/sessions)
-```
+
+<p align="center"><img src="docs/img/procedure_steps.jpg" width="100%" alt="The six compiled steps of the thermocouple procedure with their reference photos"></p>
+
+*The compiled procedure: six steps, each with the photo of what "done" looks like. Step 2's line, as spoken in his cloned voice: "Find channel sixteen: the empty slot at the end of the first thermocouple module. When you've found it, look straight at it with your hands down."*
 
 ### Compile: one recording to a procedure (`backend/apprentice/compile`)
 - **Utterance segmentation** from an energy envelope relative to the room's noise floor (20th-percentile dB + 6 dB), joined across 1.2 s gaps, split at the quietest frame past 8 s; each utterance transcribed separately by **Muse Voice Transcribe** (PUSH_TO_TALK, keyword-biased), so every turn's timestamps are exact cut points for the expert's voice.
@@ -69,6 +105,37 @@ Procedure: wiring a type T thermocouple into channel 16 of a National Instrument
 - **Dashboard** (`web/app`, React + Tailwind + Framer Motion, prebuilt in `web/build`): the novice's view beside the expert at the same point, the spoken caption, the step list, the gauge, the Muse Spark log, and **What Spark saw**: at each signal, the novice's frame beside the expert's done photo with the verdict.
 - **Phone guide** (`/guide`) and the **Android app** (`android/app`, Kotlin + Compose, DAT 1.0.1): streams the glasses, plays the voice queue, hold-to-ask on the phone mic (the glasses' mic ends the camera stream).
 - **Simulated Meta Ray-Ban Display** (`android/lens`): the guide drawn by Meta's own Display renderer via MockDeviceKit, composited over the live view with a screen blend (a waveguide only adds light), Neural Band swipes and pinches through `InputSource.NEURAL_BAND`. See [docs/lens.md](docs/lens.md).
+
+## What the model decides, what stays in code
+
+| Decided by Muse Spark | Fixed in code |
+|---|---|
+| The steps, their wording, done-checks and warnings (at compile time, schema-bound) | Whether a step can be verified at all (`verifiable`), and that unverifiable steps are never called right |
+| Whether the novice's frame shows a mistake against the expert's photo | When to look: the hands-off signal (SAM 3.1), holds while speech plays, the 6 s minimum, re-arm timing |
+| Which of the expert's recorded turns answers a question | Advancing one step at a time, dropping stale answers, the confirmation of every warning |
+| Where an unnamed target is in a frame (`track_target`) | That every spoken line is the expert's voice or shown as text (`expert_voice_only`) |
+
+The model never moves the guide on its own: a step advances only on the novice's own signal, and a warning only holds the step.
+
+## A real run: `good2`
+
+Events from `out/sessions/20261104-161919_good2/ticks.jsonl` (shortened):
+
+```text
+  2.8  intro      "Today you'll wire a thermocouple into channel sixteen. I'm watching through your glasses..."
+  2.8  instruct 1 "Separate the golden copper wire from the silver gray wire. When they're apart, ..."
+ 32.8  check    1 muse-spark-1.3  5.5 s  no mistake      -> step_done  "That looks right."
+ 32.8  instruct 2 "Find channel sixteen: the empty slot at the end of the first thermocouple module..."
+ 55.2  check    2 muse-spark-1.3  6.6 s  no mistake      -> step_done  "Nice, that's it."
+ 72.6  check    3 muse-spark-1.3  4.9 s  no mistake      -> step_done  "Good, that's done."
+100.5  signal   4 (not visually verifiable, no model call) -> step_done  "Got it."
+138.2  signal   5 (not visually verifiable, no model call) -> step_done  "Okay, next step."
+151.9  signal   6 -> complete "Done, good job! Now check the display: your channel should read the same as the others."
+```
+
+<p align="center"><img src="docs/lens-sim.png" width="80%" alt="The guide on a simulated Meta Ray-Ban Display, composited over the live glasses view, with Neural Band gestures"></p>
+
+*Simulated Meta Ray-Ban Display (`android/lens`): the step and the expert's photo drawn by Meta's own Display renderer (MockDeviceKit), screen-blended over the live view, driven by Neural Band swipes and pinches.*
 
 ## Models
 
