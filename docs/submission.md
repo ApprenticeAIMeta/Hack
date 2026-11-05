@@ -94,4 +94,4 @@ BUILT_DURING_HACKATHON.md for provenance.
   narration, with his written consent. The rendered lines stay on the laptop (gitignored), except
   the airplane demo's, which ship for the no-key replay.
 - Reference photos for the thermocouple steps were re-shot hands-free following his procedure; his
-  own frames are kept in procedures/thermocouple/keyframes/expert/.
+  own frames are kept alongside them (local, with the rest of the compiled media).
