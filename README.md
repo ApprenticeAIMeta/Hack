@@ -6,6 +6,8 @@
 
 **An expert does a job once on Ray-Ban Meta glasses. Anyone can then do it with that expert in their ear.**
 
+**Want early access?** [Join the waitlist](https://tally.so/r/o9D9AV)
+
 One narrated, first-person recording is compiled by Meta's models into a step-by-step procedure: instructions in the expert's own terms, what each finished step looks like, why it matters, and the mistakes the expert warned about. A novice wearing the same glasses is then guided live, entirely in the expert's voice (cloned lines for instructions, the expert's actual recording for answers), while SAM 3.1 watches their hands and Muse Spark checks their work against the expert's.
 
 Built for the Meta Global AI Developer Hackathon (Oct 27 to Nov 4, 2026). About 6,500 lines across a FastAPI backend, a React dashboard, and two Android apps.
