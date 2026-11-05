@@ -42,11 +42,12 @@ Procedure: wiring a type T thermocouple into channel 16 of a National Instrument
 *The only input: the expert's own first-person recording on Ray-Ban Meta glasses, narrated as he works (two takes, under three minutes each).*
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph CAPTURE["1 · Capture (once)"]
         E["Expert wears Ray-Ban Meta<br/>does the job, talks through it"] --> V["first-person video + narration"]
     end
     subgraph COMPILE["2 · Compile (~3.5 min)"]
+        direction LR
         V --> U["utterance segmentation<br/>noise-floor energy envelope"]
         U --> T["Muse Voice Transcribe<br/>timed turns = cut points"]
         V --> SP["Muse Spark 1.3<br/>strict JSON schema"]
@@ -57,6 +58,7 @@ flowchart LR
         V --> DV["DINOv2 progress model<br/>trained on degraded takes"]
     end
     subgraph GUIDE["3 · Guide (live, ~2 Hz)"]
+        direction TB
         G["Novice's Ray-Ban Meta<br/>HEVC 720p15"] -->|DAT · Android · WebSocket| S["FastAPI session"]
         S --> H["SAM 3.1 hands + workpiece<br/>every 1.5 s"]
         H -->|"hands clear 2 looks<br/>= done-signal"| D{"step verifiable?"}
