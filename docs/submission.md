@@ -1,98 +1,97 @@
-# Submission draft
+# Submission
 
-Draft answers for the Cerebral Valley submission form (Meta Global AI Developer Hackathon, Indie
-track). Edit against the real questions before submitting; every number below is from a recorded
-run in out/sessions or a measurement in docs/.
-
-## Project name
-ApprenticeAI
+ApprenticeAI for the Meta Global AI Developer Hackathon (Indie track, Push the Frontier). Every
+number below is from a recorded run in out/sessions or a measurement in docs/.
 
 ## One line
-An expert records a job once through Meta glasses; anyone wearing the glasses after them is guided
-through it step by step, in the expert's voice, in their own language.
+Experts can't stand next to every beginner. Their knowledge can: one recording of a skilled job
+becomes a live, hands-free guide in the expert's own voice.
 
 ## Problem
-Skilled trades lose knowledge every time an expert retires or changes jobs. What an experienced
-technician knows is in their hands and their habits, not in a manual: the order they do things in,
-what "done" looks like, the mistakes they have learned to avoid. Shadowing transfers it, but an
-expert can only stand beside one apprentice at a time.
+The US needs about 207,000 new electricians, HVAC technicians, plumbers and industrial mechanics a
+year (BLS), mostly to replace people who leave. Competence is gated by supervised time: an
+electrician apprenticeship is 8,000 hours next to someone who already knows, state law caps how many
+apprentices one journeyman can supervise, and only about one construction apprentice in four
+finishes. What an expert knows lives in their hands and habits: the order of the work, what "done"
+looks like, the mistakes they have learned to avoid. Shadowing passes it on one person at a time.
 
 ## What it does
-1. Capture. The expert does the job wearing Ray-Ban Meta glasses and talks through it, the way they
-   would explain it to someone new.
-2. Compile. Muse Voice Transcribe times the expert's words; Muse Spark watches the video with that
-   transcript and writes the procedure: each step's instruction, what it looks like when done, why
-   it matters (only when the expert said so), and the mistakes the expert warned about. SAM 3.1
-   picks the photo of each finished step with the hands off the work.
-3. Guide. A novice puts on the glasses. The phone propped beside the work shows the step and what
-   the expert's result looked like; a voice says what to do. When the novice sets the work down and
-   takes their hands off, the glasses take a photo and Muse Spark judges it against the expert's;
-   the guide moves on, or says what is not done yet.
-4. Ask. The novice holds a button and asks anything ("which way should the crease go?"). Voice
-   Transcribe hears it, Muse Spark answers as the expert from the recording and from what the
-   glasses see right now, and the answer is spoken.
-5. Any language. Muse Spark translates the guide into the novice's language and Meta's MMS speaks
-   it; the expert recorded once, in English.
-6. Report. At the end, time per step against the expert, checks, photos and cost for the run.
+1. **Capture.** The expert does the job once on Ray-Ban Meta glasses and talks through it.
+2. **Compile.** Muse Voice Transcribe times his words; Muse Spark reads the video with the timed
+   transcript and writes the procedure under a strict schema: each step's instruction, a spoken
+   line for the beginner, what "done" looks like, why it matters in his words, and the mistakes he
+   warned about, kept apart from the ones the model adds. Every line is rendered in his cloned voice.
+3. **Guide.** A beginner wears the glasses and hears the expert, step by step. Each line ends with
+   how to show the finished step ("take your hands away and look at the connector, so I can check
+   it"). SAM 3.1 sees the hands leave the work; Muse Spark checks the frame against the expert's
+   photo of that step and the guide moves on, or warns and holds the step.
+4. **Ask.** The beginner asks a question; Muse Spark finds the moment of the expert's own recording
+   that answers it, and his actual words play.
+5. **See the reasoning.** The dashboard shows, at every check, the beginner's frame beside the
+   expert's done photo with the verdict.
 
-## How it uses Meta's models
-- Muse Spark 1.3: compiles video plus transcript into a procedure; live, judges which step the
-  novice has reached from stream frames and photos (cached reference prefix, about 4 to 6 s an
-  answer); answers the novice's questions as the expert; translates the guide.
-- SAM 3.1: tracks the workpiece in every stream frame (median under 1 s), finds the work in each
-  full-resolution photo from a one-call box prompt, detects whether a hand is on the work (the
-  "hands off" signal), and picks the expert's reference photos with the hands off.
-- Muse Voice Transcribe: times the expert's narration for the compile; transcribes the novice's
-  spoken questions (about 1.3 s).
-- Open weights: MMS-TTS (Meta) speaks instructions, warnings and answers in 1,100+ languages;
-  DINOv2 (Meta) embeds workpiece crops for the progress model.
-- Ray-Ban Meta glasses through the Wearables Device Access Toolkit: 720p 15 fps stream and
-  full-resolution photos on request.
+## The test: thermocouple wiring at Purdue's Herrick Labs
+Chibuoke recorded wiring a type T thermocouple into channel 16 of a National Instruments module (two
+takes, 2:52 each). The compile produced six steps in about 30 s of Muse Spark.
 
-## How it was built
-Android app (Kotlin, Jetpack Compose) streams HEVC from the glasses to a FastAPI server over a
-WebSocket; the server decodes with PyAV, tracks with SAM, scores progress with DINOv2, and a step
-tracker decides when to ask Muse Spark. The phone guide and the live dashboard are React, Tailwind
-and Framer Motion. Every session is recorded and can be replayed on the dashboard with every model
-call and its reason.
-
-## Measured
-- Six live runs on Nov 3 (docs/eval.md). catch5 guided all seven steps of the paper airplane end to
-  end, including the throw, finishing at 182 s of a 271 s session.
-- A Muse Spark step check takes 3.5 to 5 s (median per run). In the live runs a check took 10 to
-  11 s from being asked to being answered, mostly waiting for a still from the glasses; after
-  moving timed checks to the stream frame, the same footage replayed answered in a median 6 s.
-- Voice Transcribe heard a spoken question word for word in 1.1 to 1.4 s; the spoken answer arrives
-  about 7 s after the button is released.
-- Hindi: 19 lines translated and voiced in about a minute.
-- Cost: $0.69 to $1.29 per guided run.
+- **11 complete guided runs**, **57 step advances**, every one triggered by the beginner's own
+  hands-off pause, **0 manual overrides**.
+- Best run: **2:32** for all six steps, against the expert's 2:52.
+- Signal to next instruction: about 3 s on steps the camera cannot verify, 7 to 9 s with a Muse
+  Spark check.
+- Cost: $0.55 to $0.61 per three-minute guided run.
+- Earlier procedure, a paper airplane: 35 live advances, none early or skipped; run catch5
+  completed all seven steps including the throw.
 
 ## What does not work yet (stated plainly)
-Catching a mistake automatically is not reliable. On planted mistakes (a corner short of the
-crease, one wing folded) Spark did not flag them on real stills; on hands-off photos it flagged one
-once. No planted mistake produced a warning in any live run. Step tracking works; judging a
-fold's precise geometry from a photo does not, yet. The next
-step is measuring the work's outline from SAM's mask instead of asking a language model about it.
+From a head-mounted camera, which wire sits in which port of this connector is not visible, even in
+12 MP stills with a Muse Spark-located, upscaled crop of the connector; tested on correct and
+mirrored photos. So the guide never claims to verify those steps: it acknowledges them, plays the
+expert's warning at the critical step, and sends the beginner to the real check, the temperature
+display. Automatic mistake catching is not reliable on either procedure. The mistake stop in the
+demo video is labeled as a demonstration.
+
+## How it uses Meta's models
+- **Muse Spark 1.3:** compiles the procedure; checks the beginner's frame against the expert's
+  reference at each signal (a quarter-turned confirmation runs in parallel so false alarms cost one
+  call's latency); picks which of the expert's recorded turns answers a question; translates the
+  guide; finds targets SAM cannot name.
+- **SAM 3.1:** the hands-off sensor that decides when to look, and workpiece tracking.
+- **Muse Voice Transcribe:** turns the expert's narration into timed turns that are exact cut points
+  for his voice; transcribes the beginner's questions.
+- **Ray-Ban Meta + Wearables Device Access Toolkit:** the 720p 15 fps camera stream and the speakers;
+  a simulated Ray-Ban Display mode with Neural Band input built on the toolkit's Display API.
+- **Open weights:** Omnilingual ASR (local questions in any language), MMS-TTS (Hindi and Spanish
+  guides), DINOv2 (progress gauge). **Muse Spark Open on Baseten** takes over if the Meta Model API
+  cannot answer.
+
+## How it was built
+Android (Kotlin, Compose, DAT 1.0.1) streams HEVC from the glasses to a FastAPI server over a
+WebSocket; the server decodes with PyAV, runs SAM, the progress model and a step tracker, and asks
+Muse Spark only when the beginner signals. Dashboard and phone guide are React, Tailwind and Framer
+Motion. Every session is recorded and replays on the dashboard with every model call and its reason.
 
 ## Challenges
-- The glasses' microphone ends the camera stream on current firmware, so speech goes through the
-  phone.
-- A head-worn camera never holds still, so "the work is finished" is detected from hands leaving
-  the work rather than from the picture settling.
-- Every still freezes the stream and waits for the voice to finish, so stills are taken only when
-  the novice signals; timed checks use the 720p stream.
+- A head-worn camera never holds still, so "done" is the hands leaving the work, not the picture
+  settling; signals are ignored while the guide is speaking.
+- On a crowded wiring rack, step answers from a single frame flipped; the fix was letting the
+  beginner's pause decide when, and Spark only judge for mistakes.
+- The glasses' microphone ends the camera stream, so questions go through the phone.
+- An expert demonstrating a mistake compiled as steps ("connect reversed wires"); the compile now
+  folds demonstrated mistakes into warnings.
 
 ## What's next
-Mistake detection from the work's silhouette; the glasses' touchpad as "next step" (the toolkit's
-experimental Inputs); an expert review queue for disputed checks; the same pipeline on HVAC work
-(thermostat wiring) with a working technician.
+A guided capture protocol so the expert's recording always contains clear evidence of each finished
+step; continuous target tracking (built, off by default); a specific compiled check per step; a real
+Ray-Ban Display build.
 
 ## Built during the hackathon
-Everything in the repository was written from Oct 27, 2026, by one person with Claude Code, from a
-plan drafted at kickoff. See BUILT_DURING_HACKATHON.md for provenance and commit gaps.
+Everything was written from Oct 27, 2026, by one person with Claude Code. See
+BUILT_DURING_HACKATHON.md for provenance.
 
 ## Disclosures
-- Voice: the demo guide speaks in a cloned voice of the expert (open-source Chatterbox, MIT), made
-  locally from 30 s of the expert's own recording with their consent; Meta's MMS-TTS is the
-  default. The clone runs on the laptop; the rendered lines are in the repository.
-- The progress model uses DINOv2 (Meta, open weights); MMS-TTS is Meta, open weights.
+- The expert's voice is cloned locally with Chatterbox (open source, MIT) from 30 s of his own
+  narration, with his written consent. The rendered lines stay on the laptop (gitignored), except
+  the airplane demo's, which ship for the no-key replay.
+- Reference photos for the thermocouple steps were re-shot hands-free following his procedure; his
+  own frames are kept in procedures/thermocouple/keyframes/expert/.
