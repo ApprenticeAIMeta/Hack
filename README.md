@@ -35,7 +35,7 @@ Procedure: wiring a type T thermocouple into channel 16 of a National Instrument
 
 ## How it works
 
-<p align="center"><img src="docs/img/expert_capture.jpg" width="96%" alt="Four frames of the expert's first-person recording on Ray-Ban Meta glasses: holding the wire, finding the channel, wiring, the finished connection"></p>
+<p align="center"><img src="docs/img/expert_capture.jpg" width="80%" alt="Two frames of the expert's first-person recording on Ray-Ban Meta glasses: holding the thermocouple wire, then wiring it into the module"></p>
 
 *The only input: the expert's own first-person recording on Ray-Ban Meta glasses, narrated as he works (two takes, under three minutes each).*
 
@@ -70,10 +70,6 @@ flowchart LR
     CL --> OK
     S --> UI["dashboard · phone guide · recorder · simulated Ray-Ban Display"]
 ```
-
-<p align="center"><img src="docs/img/procedure_steps.jpg" width="100%" alt="The six compiled steps of the thermocouple procedure with their reference photos"></p>
-
-*The compiled procedure: six steps, each with the photo of what "done" looks like. Step 2's line, as spoken in his cloned voice: "Find channel sixteen: the empty slot at the end of the first thermocouple module. When you've found it, look straight at it with your hands down."*
 
 ### Compile: one recording to a procedure (`backend/apprentice/compile`)
 - **Utterance segmentation** from an energy envelope relative to the room's noise floor (20th-percentile dB + 6 dB), joined across 1.2 s gaps, split at the quietest frame past 8 s; each utterance transcribed separately by **Muse Voice Transcribe** (PUSH_TO_TALK, keyword-biased), so every turn's timestamps are exact cut points for the expert's voice.
@@ -136,6 +132,12 @@ Events from `out/sessions/20261104-161919_good2/ticks.jsonl` (shortened):
 <p align="center"><img src="docs/lens-sim.png" width="80%" alt="The guide on a simulated Meta Ray-Ban Display, composited over the live glasses view, with Neural Band gestures"></p>
 
 *Simulated Meta Ray-Ban Display (`android/lens`): the step and the expert's photo drawn by Meta's own Display renderer (MockDeviceKit), screen-blended over the live view, driven by Neural Band swipes and pinches.*
+
+## Earlier procedure: a paper airplane
+
+<p align="center"><img src="docs/img/airplane_steps.jpg" width="92%" alt="The seven compiled steps of the paper airplane procedure with their reference photos"></p>
+
+*The first procedure, compiled from one narrated recording the same way: seven steps, from tearing the page to throwing the plane. Run `catch5` completed all seven steps live, throw included (the plane leaving the view ends the run), and the guide made 35 live step advances across runs with none early and none skipped ([docs/eval.md](docs/eval.md)). It ships as the no-key replay below.*
 
 ## Models
 
